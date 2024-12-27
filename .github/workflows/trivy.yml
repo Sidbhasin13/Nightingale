@@ -26,29 +26,6 @@ jobs:
           CR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      name: Trivy Scan
-
-on:
-  schedule:
-    - cron: "0 0 * * *" # Runs every 24 hours
-  workflow_dispatch: # Allows manual triggering of the workflow
-
-permissions:
-  contents: read
-  security-events: write
-
-jobs:
-  setup:
-    name: Setup and Fetch Images
-    runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.fetch_images.outputs.images }}
-    steps:
-      - name: Authenticate with GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
-        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
       - name: Set GitHub Token for CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
