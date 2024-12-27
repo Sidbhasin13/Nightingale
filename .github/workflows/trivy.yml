@@ -43,9 +43,10 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-db
+          key: ${{ runner.os }}-trivy-db-${{ github.sha }}-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-trivy-db
+          ttl: 24h 
 
       - name: Install Trivy
         run: |
@@ -53,7 +54,10 @@ jobs:
           sudo apt-get install -y wget
           wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
           sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
-          trivy --cache-dir ${HOME}/.cache/trivy
+      
+      - name: Force Trivy to refresh the database
+        run: |
+          trivy --cache-dir ${HOME}/.cache/trivy --refresh
 
       - name: Run Trivy vulnerability scanner
         run: |
@@ -65,9 +69,23 @@ jobs:
               --skip-files home/tools_web_vapt/WhatWeb/plugins/IpToCountry.csv \
               --format sarif \
               --output trivy-results.sarif \
-              --severity CRITICAL \
+              --severity CRITICAL,MEDIUM \
               ghcr.io/rajanagori/nightingale:stable && break || sleep 60
           done
+
+          if ! trivy image \
+              --format spdx \
+              --output sbom.spdx \
+              ghcr.io/rajanagori/nightingale:stable; then
+            echo "Warning: SPDX SBOM generation failed or lacked necessary compliance info."
+          fi
+
+          if ! trivy image \
+              --format cyclonedx \
+              --output sbom.cyclonedx.json \
+              ghcr.io/rajanagori/nightingale:stable; then
+            echo "Warning: CycloneDX SBOM generation failed or lacked necessary security info."
+          fi
 
       - name: Debug Trivy Results
         run: |
@@ -87,3 +105,15 @@ jobs:
         with:
           name: trivy-results
           path: trivy-results.sarif
+      
+      - name: Upload SBOM (SPDX JSON) as an artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-sbom-spdx
+          path: sbom.spdx.json
+
+      - name: Upload SBOM (CycloneDX) as an artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-sbom-cyclonedx
+          path: sbom.cyclonedx.json
