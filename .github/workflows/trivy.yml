@@ -79,7 +79,7 @@ jobs:
         if: env.REFRESH == 'true'
         run: |
           echo "Refreshing Trivy database..."
-          trivy --cache-dir ${HOME}/.cache/trivy --refresh
+          trivy db reset
 
           date +%s > ${HOME}/.trivy_last_refresh
 
