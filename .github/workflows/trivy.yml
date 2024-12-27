@@ -32,37 +32,26 @@ jobs:
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
           
-          # Fetch the list of container images from the organization
-          IMAGES=$(gh api -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /orgs/RAJANAGORI/packages?package_type=container)
+          # Fetch list of container images using curl
+          IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/orgs/rajanagori/packages/container" \
+            | jq -r '.[] | select(.package_type=="container") | .name')
 
-          echo "Images found: $IMAGES"
-
-          # Initialize an empty array to store stable images
           STABLE_IMAGES=()
-
-          # Loop through each image to fetch its versions and tags
-          for IMAGE in $(echo $IMAGES | jq -r '.[].name'); do
-            # Fetch versions for each image
-            TAGS=$(gh api -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              /orgs/RAJANAGORI/packages/container/${IMAGE}/versions \
+          for IMAGE in $IMAGES; do
+            # Fetch image versions with stable tags
+            TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/orgs/rajanagori/packages/container/${IMAGE}/versions" \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
 
-            # Loop through each tag to select stable tags
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
-                # Add the stable image to the list
-                STABLE_IMAGES+=("ghcr.io/RAJANAGORI/xuz/${IMAGE}:${TAG}")
+                STABLE_IMAGES+=("ghcr.io/rajanagori/${IMAGE}:${TAG}")
               fi
             done
           done
 
-          # Print the stable images found for debugging
           echo "Stable images found: ${STABLE_IMAGES[*]}"
-
-          # Set the output variable for subsequent jobs
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
   download:
