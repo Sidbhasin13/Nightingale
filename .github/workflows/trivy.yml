@@ -34,9 +34,12 @@ jobs:
 
       - name: Verify Image Existence
         run: |
-          if ! docker pull ghcr.io/rajanagori/nightingale:stable; then
-            echo "Docker image not found: ghcr.io/rajanagori/nightingale:stable"
-            exit 1
+          if ! docker pull --platform linux/amd64 ghcr.io/rajanagori/nightingale:stable; then
+            echo "Docker image not found for amd64. Trying arm64."
+            if ! docker pull --platform linux/arm64 ghcr.io/rajanagori/nightingale:stable; then
+              echo "Docker image not found for arm64 either."
+              exit 1
+            fi
           fi
 
       - name: Cache Trivy DB
