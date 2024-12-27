@@ -37,7 +37,7 @@ jobs:
           # Fetch list of container images using curl
           RESPONSE=$(curl -v -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/RAJANAGORI/packages")
+            "https://api.github.com/users/RAJANAGORI/packages?package_type=container")
 
           # Debug: Print the response to check its structure
           echo "API Response: $RESPONSE"
