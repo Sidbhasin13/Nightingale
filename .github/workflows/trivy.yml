@@ -35,8 +35,9 @@ jobs:
           GH_REPO="Nightingale"
           
           # Fetch list of container images using curl
-          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
+          RESPONSE=$(curl -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/users/$GH_USER/packages?package_type=container")
 
           # Debug: Print the response to check its structure
