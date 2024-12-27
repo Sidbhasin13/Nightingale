@@ -26,20 +26,19 @@ jobs:
           CR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Set GitHub Token for CLI
+      - name: Fetch Stable Images from GitHub Container Registry
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-          
+        
           IMAGES=$(gh api -H "Accept: application/vnd.github+json" /repos/rajanagori/nightingale/packages/container)
 
           echo "Images found: $IMAGES"
 
-          # Fetch stable versions for each image
           STABLE_IMAGES=()
+
           for IMAGE in $(echo $IMAGES | jq -r '.[].name'); do
-            # Fetch versions for each image in the Sid/xyz_repo container registry
             TAGS=$(gh api -H "Accept: application/vnd.github+json" \
               /repos/rajanagori/nightingale/packages/container/${IMAGE}/versions \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
