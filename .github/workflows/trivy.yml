@@ -90,6 +90,8 @@ jobs:
               ghcr.io/rajanagori/nightingale:stable && break || sleep 60
           done
 
+      - name: Generate SPDX SBOM
+        run: |
           if ! trivy image \
               --format spdx \
               --scanners vuln \
@@ -98,6 +100,8 @@ jobs:
             echo "Warning: SPDX SBOM generation failed or lacked necessary compliance info."
           fi
 
+      - name: Generate CycloneDX SBOM
+        run: |
           if ! trivy image \
               --format cyclonedx \
               --scanners vuln \
@@ -106,33 +110,20 @@ jobs:
             echo "Warning: CycloneDX SBOM generation failed or lacked necessary security info."
           fi
 
-      - name: Debug Trivy Results
+      - name: Save SARIF & SBOMs file as an artifact
+        uses: actions/upload-artifact@v3
+        with:- name: Create a ZIP file for artifacts
         run: |
-          if [ -f "trivy-results.sarif" ]; then
-            echo "Trivy results file generated successfully." && cat trivy-results.sarif
-          else
-            echo "Failed to generate Trivy results file." && exit 1
-          fi
+          mkdir -p artifacts
+    
+          mv trivy-results.sarif artifacts/
+          mv sbom.spdx.json artifacts/
+          mv sbom.cyclonedx.json artifacts/
 
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
+          zip -r artifacts.zip artifacts/
 
-      - name: Save SARIF file as an artifact
+      - name: Upload the ZIP file as an artifact
         uses: actions/upload-artifact@v3
         with:
-          name: trivy-results
-          path: trivy-results.sarif
-      
-      - name: Upload SBOM (SPDX JSON) as an artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-sbom-spdx
-          path: sbom.spdx.json
-
-      - name: Upload SBOM (CycloneDX) as an artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-sbom-cyclonedx
-          path: sbom.cyclonedx.json
+          name: trivy-artifacts
+          path: artifacts.zip
