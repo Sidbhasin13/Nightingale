@@ -15,125 +15,149 @@ permissions:
   security-events: write
 
 jobs:
-  build:
-    name: Trivy Vulnerability Scan
+  setup:
+    name: Setup and Fetch Images
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      security-events: write
-
+    outputs:
+      images: ${{ steps.fetch_images.outputs.images }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Authenticate with GitHub Container Registry
         env:
           CR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Verify Image Existence
+      - name: Fetch all stable images
+        id: fetch_images
         run: |
-          if ! docker pull --platform linux/amd64 ghcr.io/rajanagori/nightingale:stable; then
-            echo "Docker image not found for amd64. Trying arm64."
-            if ! docker pull --platform linux/arm64 ghcr.io/rajanagori/nightingale:stable; then
-              echo "Docker image not found for arm64."
-              exit 1
-            fi
-            exit 1
-          fi
+          echo "Fetching stable images from GitHub Container Registry..."
+          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /rajanagori/nightingale/packages/container \
+            | jq -r '.[] | select(.package_type=="container") | .name')
 
-      - name: Check if Trivy is installed
+          STABLE_IMAGES=()
+          for IMAGE in $IMAGES; do
+            TAGS=$(gh api -H "Accept: application/vnd.github+json" \
+              /rajanagori/nightingale/packages/container/${IMAGE}/versions \
+              | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
+            
+            for TAG in $TAGS; do
+              if [[ "$TAG" == *"stable"* ]]; then
+                STABLE_IMAGES+=("ghcr.io/rajanagori/${IMAGE}:${TAG}")
+              fi
+            done
+
+          echo "Stable images found: ${STABLE_IMAGES[*]}"
+          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+
+  download:
+    name: Pre-download Trivy DB and Images
+    needs: setup
+    runs-on: ubuntu-latest
+    outputs:
+      shared_dir: ${{ steps.prepare.outputs.shared_dir }}
+    steps:
+      - name: Install Dependencies
         run: |
-          if ! command -v trivy &> /dev/null; then
-            echo "Trivy is not installed. Installing Trivy..."
-            sudo apt-get update
-            sudo apt-get install -y wget
-            wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
-            sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
-          else
-            echo "Trivy is already installed."
-          fi
-      
-      - name: Check if 24 hours have passed since the last refresh of Trivy DB
-        run: |
-          if [ -f "${HOME}/.trivy_last_refresh" ]; then
-            LAST_REFRESH=$(cat ${HOME}/.trivy_last_refresh)
-            CURRENT_TIME=$(date +%s)
-            TIME_DIFF=$((CURRENT_TIME - LAST_REFRESH))
-            MAX_TIME_DIFF=$((24 * 60 * 60))
+          sudo apt-get update
+          sudo apt-get install -y wget jq
 
-            if [ $TIME_DIFF -gt $MAX_TIME_DIFF ]; then
-              echo "24 hours have passed. Proceeding to refresh the Trivy database."
-              echo "REFRESH=true" >> $GITHUB_ENV  
-            else
-              echo "Less than 24 hours since last refresh. Skipping refresh."
-              echo "REFRESH=false" >> $GITHUB_ENV 
-            fi
-          else
-            echo "No refresh file found. Performing refresh."
-            echo "REFRESH=true" >> $GITHUB_ENV
-          fi
+      - name: Cache Trivy Database
+        id: cache_trivy
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-cache
 
-      - name: Force Trivy to refresh the database if needed
-        if: env.REFRESH == 'true'
+      - name: Refresh Trivy Database if Needed
+        if: steps.cache_trivy.outputs.cache-hit != 'true'
         run: |
           echo "Refreshing Trivy database..."
-          rm -rf ${HOME}/.cache/trivy
+          trivy image --download-db-only
 
-          date +%s > ${HOME}/.trivy_last_refresh
-
-      - name: Run Trivy vulnerability scanner
+      - name: Prepare Shared Directory
+        id: prepare
         run: |
-          export TRIVY_AUTH_URL="https://ghcr.io"
-          export TRIVY_TOKEN=$GITHUB_TOKEN
-          for i in {1..5}; do
-            trivy image \
-              --skip-dirs /home/wordlist \
-              --skip-files home/tools_web_vapt/WhatWeb/plugins/IpToCountry.csv \
-              --format sarif \
-              --output trivy-results.sarif \
-              --severity CRITICAL,MEDIUM \
-              ghcr.io/rajanagori/nightingale:stable && break || sleep 60
+          mkdir -p shared
+          echo "::set-output name=shared_dir::$(pwd)/shared"
+
+      - name: Pre-pull Docker Images
+        run: |
+          echo "Pre-pulling all Docker images..."
+          IMAGES=${{ needs.setup.outputs.images }}
+          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
+            docker pull $IMAGE
           done
 
-      - name: Generate SPDX SBOM
+      - name: Save Docker Images for Reuse
         run: |
-          if ! trivy image \
-              --format spdx \
-              --scanners vuln \
-              --output sbom.spdx.json \
-              ghcr.io/rajanagori/nightingale:stable; then
-            echo "Warning: SPDX SBOM generation failed or lacked necessary compliance info."
-          fi
+          SHARED_DIR=${{ steps.prepare.outputs.shared_dir }}
+          IMAGES=${{ needs.setup.outputs.images }}
+          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
+            IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
+            docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
+          done
 
-      - name: Generate CycloneDX SBOM
+  scan:
+    name: Trivy Scan
+    needs: download
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.setup.outputs.images) }}
+        architecture:
+          - linux/amd64
+          - linux/arm64
+    steps:
+      - name: Install Dependencies
         run: |
-          if ! trivy image \
-              --format cyclonedx \
-              --scanners vuln \
-              --output sbom.cyclonedx.json \
-              ghcr.io/rajanagori/nightingale:stable; then
-            echo "Warning: CycloneDX SBOM generation failed or lacked necessary security info."
-          fi
+          sudo apt-get update
+          sudo apt-get install -y wget jq
 
-      - name: Create a ZIP file for artifacts
+      - name: Load Trivy Database from Cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-cache
+
+      - name: Load Pre-pulled Docker Image
         run: |
-          mkdir -p artifacts
-    
-          mv trivy-results.sarif artifacts/
-          mv sbom.spdx.json artifacts/
-          mv sbom.cyclonedx.json artifacts/
+          SHARED_DIR=${{ needs.download.outputs.shared_dir }}
+          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
+          docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
+      
+      - name: Run Trivy Vulnerability Scanner (SARIF)
+        run: |
+          echo "Scanning ${{ matrix.image }} for architecture ${{ matrix.architecture }}..."
+          trivy image \
+            --platform ${{ matrix.architecture }} \
+            --format sarif \
+            --output trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif \
+            --severity CRITICAL,MEDIUM \
+            ${{ matrix.image }}
 
-          zip -r artifacts.zip artifacts/
+      - name: Run Trivy Vulnerability Scanner (CycloneDX)
+        run: |
+          echo "Scanning ${{ matrix.image }} for architecture ${{ matrix.architecture }}..."
+          trivy image \
+            --platform ${{ matrix.architecture }} \
+            --format cyclonedx \
+            --scanners vuln \
+            --output sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json \
+            --severity CRITICAL,MEDIUM \
+            ${{ matrix.image }}
       
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'artifacts/trivy-results.sarif'
+          sarif_file: trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif
 
-      - name: Upload the ZIP file as an artifact
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p artifacts
+          mv sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json artifacts/
+          mv trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif artifacts/
+
+      - name: Upload Artifacts (SBOM and SARIF)
         uses: actions/upload-artifact@v3
         with:
-          name: trivy-artifacts
-          path: artifacts.zip
+          name: trivy-sbom-sarif-${{ matrix.image }}-${{ matrix.architecture }}
+          path: artifacts/
