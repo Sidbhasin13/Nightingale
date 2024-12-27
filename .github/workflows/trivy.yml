@@ -29,9 +29,8 @@ jobs:
 
       - name: Authenticate with GitHub Container Registry
         env:
-          TOKEN: ${{ secrets.TOKEN }}
-        run: |
-          echo "${{ secrets.TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+          CR_PAT: ${{ secrets.TOKEN }}
+        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Verify Image Existence
         run: |
