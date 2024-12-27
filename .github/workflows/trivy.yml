@@ -47,13 +47,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-db-${{ github.sha }}-${{ github.run_id }}-${{ steps.date.outputs.cache_key }}  
+          key: ${{ runner.os }}-trivy-db-${{ github.sha }}-${{ github.run_id }}-${{ env.cache_key }}
           restore-keys: |
-            ${{ runner.os }}-trivy-db-${{ steps.date.outputs.cache_key }}
+            ${{ runner.os }}-trivy-db-${{ env.cache_key }}
 
       - name: Set cache key based on the date
         id: date
-        run: echo "::set-output name=cache_key::$(date +'%Y-%m-%d')" 
+        run: |
+          echo "cache_key=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Install Trivy
         run: |
