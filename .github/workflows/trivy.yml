@@ -79,7 +79,7 @@ jobs:
         if: env.REFRESH == 'true'
         run: |
           echo "Refreshing Trivy database..."
-          trivy cache clean
+          trivy clean
 
           date +%s > ${HOME}/.trivy_last_refresh
 
