@@ -2,11 +2,11 @@ name: Trivy Scan
 
 on:
   push:
-    branches: [ "development" ]
+    branches: ["debug-trivy-scan-issue"]
     paths:
       - ".github/workflows/trivy.yml"
   pull_request:
-    branches: [ "development" ]
+    branches: ["debug-trivy-scan-issue"]
     paths:
       - ".github/workflows/trivy.yml"
 
@@ -28,10 +28,17 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Authenticate with GitHub Container Registry
-        run: echo "${{ secrets.TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+        run: |
+          echo "${{ secrets.TOKEN }}" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Verify Image Existence
-        run: docker pull ghcr.io/rajanagori/nightingale:stable
+        run: |
+          if ! docker pull ghcr.io/rajanagori/nightingale:stable; then
+            echo "Docker image not found: ghcr.io/rajanagori/nightingale:stable"
+            exit 1
+          fi
 
       - name: Cache Trivy DB
         uses: actions/cache@v3
@@ -62,31 +69,22 @@ jobs:
               --severity CRITICAL \
               ghcr.io/rajanagori/nightingale:stable && break || sleep 60
           done
-      # - name: Run Trivy vulnerability scanner
-      #   run: |
-      #     export TRIVY_AUTH_URL="https://ghcr.io"
-      #     export TRIVY_TOKEN=$GITHUB_TOKEN
-      #     for i in {1..5}; do
-      #       trivy image \
-      #         --platform linux/arm64 \
-      #         --skip-dirs /home/wordlist \
-      #         --skip-files home/tools_web_vapt/WhatWeb/plugins/IpToCountry.csv \
-      #         --format sarif \
-      #         --output trivy-results.sarif \
-      #         --severity CRITICAL \
-      #         ghcr.io/rajanagori/nightingale:arm64-development && break || sleep 60
-      #     done
 
-      - name: Verify Trivy results file
+      - name: Debug Trivy Results
         run: |
           if [ -f "trivy-results.sarif" ]; then
-            echo "trivy-results.sarif file exists."
+            echo "Trivy results file generated successfully." && cat trivy-results.sarif
           else
-            echo "trivy-results.sarif file does not exist. Exiting."
-            exit 1
+            echo "Failed to generate Trivy results file." && exit 1
           fi
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-results.sarif'
+
+      - name: Save SARIF file as an artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-results
+          path: trivy-results.sarif
