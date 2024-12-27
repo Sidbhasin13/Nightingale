@@ -55,9 +55,18 @@ jobs:
           wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
           sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
       
-      - name: Force Trivy to refresh the database
+      - name: Check cache age and refresh Trivy DB if expired
         run: |
-          trivy --cache-dir ${HOME}/.cache/trivy --refresh
+          CACHE_PATH="${HOME}/.cache/trivy/db"
+          CACHE_AGE=$(( $(date +%s) - $(stat -c %Y "$CACHE_PATH") ))
+          MAX_AGE=$((24 * 60 * 60))  # 24 hours in seconds
+
+          if [ $CACHE_AGE -gt $MAX_AGE ]; then
+            echo "Cache is older than 24 hours. Refreshing Trivy database..."
+            trivy --cache-dir ${HOME}/.cache/trivy --refresh  # Refresh the database if the cache is expired
+          else
+            echo "Cache is fresh. Skipping Trivy database refresh."
+          fi
 
       - name: Run Trivy vulnerability scanner
         run: |
