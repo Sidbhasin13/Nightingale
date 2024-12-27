@@ -34,8 +34,7 @@ jobs:
           
           # Fetch list of container images using curl
           IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/orgs/rajanagori/packages/container" \
-            | jq -r '.[] | select(.package_type=="container") | .name')
+            "https://api.github.com/orgs/rajanagori/packages/container")
 
           STABLE_IMAGES=()
           for IMAGE in $IMAGES; do
