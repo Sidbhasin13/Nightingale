@@ -84,13 +84,15 @@ jobs:
 
           if ! trivy image \
               --format spdx \
-              --output sbom.spdx \
+              --scanners vuln \
+              --output sbom.spdx.json \
               ghcr.io/rajanagori/nightingale:stable; then
             echo "Warning: SPDX SBOM generation failed or lacked necessary compliance info."
           fi
 
           if ! trivy image \
               --format cyclonedx \
+              --scanners vuln \
               --output sbom.cyclonedx.json \
               ghcr.io/rajanagori/nightingale:stable; then
             echo "Warning: CycloneDX SBOM generation failed or lacked necessary security info."
