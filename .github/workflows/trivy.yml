@@ -34,21 +34,25 @@ jobs:
           
           # Fetch list of container images using curl
           IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/users/RAJANAGORI/packages?package_type=container")
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/RAJANAGORI/packages")
           
           echo "Images : $IMAGES"
 
           STABLE_IMAGES=()
-          for IMAGE in $IMAGES; do
-            # Fetch image versions with stable tags
+          # Extract image names
+          PACKAGE_NAMES=$(echo $IMAGES | jq -r '.[].name')
+
+          for PACKAGE in $PACKAGE_NAMES; do
+            # Fetch image versions and stable tags
             TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              "https://api.github.com/users/RAJANAGORI/packages?package_type=container/${IMAGE}/versions" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/users/RAJANAGORI/packages/container/${PACKAGE}/versions" \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
 
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
-                STABLE_IMAGES+=("ghcr.io/RAJANAGORI/${IMAGE}:${TAG}")
+                STABLE_IMAGES+=("ghcr.io/RAJANAGORI/${PACKAGE}:${TAG}")
               fi
             done
           done
@@ -131,7 +135,7 @@ jobs:
           SHARED_DIR=${{ needs.download.outputs.shared_dir }}
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
-      
+
       - name: Run Trivy Vulnerability Scanner (SARIF)
         run: |
           echo "Scanning ${{ matrix.image }} for architecture ${{ matrix.architecture }}..."
@@ -152,7 +156,7 @@ jobs:
             --output sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json \
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
-      
+
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
