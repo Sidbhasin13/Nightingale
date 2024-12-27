@@ -28,7 +28,7 @@ jobs:
 
       - name: Fetch Stable Images from GitHub Container Registry
         env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
           GH_USER="RAJANAGORI" 
@@ -36,7 +36,7 @@ jobs:
           
           # Fetch list of container images using curl
           RESPONSE=$(curl --location 'https://api.github.com/users/RAJANAGORI/packages?package_type=container' \
-          --header 'Authorization: Bearer $CR_PAT')
+          --header 'Authorization: Bearer $GH_TOKEN')
 
           # Debug: Print the response to check its structure
           echo "API Response: $RESPONSE"
