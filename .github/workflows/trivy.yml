@@ -34,7 +34,7 @@ jobs:
           
           # Fetch list of container images using curl
           IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/orgs/rajanagori/packages/container")
+            "https://api.github.com/users/rajanagori/packages?package_type=container")
           
           echo "Images : $IMAGES"
 
@@ -42,7 +42,7 @@ jobs:
           for IMAGE in $IMAGES; do
             # Fetch image versions with stable tags
             TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              "https://api.github.com/orgs/rajanagori/packages/container/${IMAGE}/versions" \
+              "https://api.github.com/users/rajanagori/packages?package_type=container/${IMAGE}/versions" \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
 
             for TAG in $TAGS; do
