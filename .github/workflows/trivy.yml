@@ -38,8 +38,9 @@ jobs:
             echo "Docker image not found for amd64. Trying arm64."
             if ! docker pull --platform linux/arm64 ghcr.io/rajanagori/nightingale:stable; then
               echo "Docker image not found for arm64."
+              exit 1
+            fi
             exit 1
-          exit 1
           fi
 
       - name: Cache Trivy DB
