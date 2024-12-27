@@ -65,14 +65,14 @@ jobs:
 
             if [ $TIME_DIFF -gt $MAX_TIME_DIFF ]; then
               echo "24 hours have passed. Proceeding to refresh the Trivy database."
-              echo "true" >> $GITHUB_ENV  
+              echo "REFRESH=true" >> $GITHUB_ENV  
             else
               echo "Less than 24 hours since last refresh. Skipping refresh."
-              echo "false" >> $GITHUB_ENV 
+              echo "REFRESH=false" >> $GITHUB_ENV 
             fi
           else
             echo "No refresh file found. Performing refresh."
-            echo "true" >> $GITHUB_ENV
+            echo "REFRESH=true" >> $GITHUB_ENV
           fi
 
       - name: Force Trivy to refresh the database if needed
