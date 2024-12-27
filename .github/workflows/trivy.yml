@@ -29,37 +29,17 @@ jobs:
       - name: Fetch Stable Images from GitHub Container Registry
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # run: |
-        #   echo "Fetching stable images from GitHub Container Registry..."
-          
-        #   # Fetch list of container images using curl
-        #   IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-        #     -H "Accept: application/vnd.github.v3+json" \
-        #     "https://api.github.com/users/${{ github.actor }}/packages/container?per_page=100" \
-        #     | jq -r '.[].name')
-
-        #   echo "Images: $IMAGES"
-
-        #   STABLE_IMAGES=()
-        #   # Extract image names and fetch stable tags
-        #   for PACKAGE in $IMAGES; do
-        #     TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-        #       -H "Accept: application/vnd.github.v3+json" \
-        #       "https://api.github.com/users/${{ github.actor }}/packages/container/${PACKAGE}/versions?per_page=100" \
-        #       | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
-
-        #     for TAG in $TAGS; do
-        #       if [[ "$TAG" == *"stable"* ]]; then
-        #         STABLE_IMAGES+=("ghcr.io/${{ github.actor }}/${PACKAGE}:${TAG}")
-        #       fi
-        #     done
-        #   done
-
-        #   echo "Stable images found: ${STABLE_IMAGES[*]}"
-        #   echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
-
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
+          
+          echo "GitHub Actor: ${{ github.actor }}"
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "GH_TOKEN is not set!"
+            exit 1
+          else
+            echo "GH_TOKEN is set."
+          fi
 
           # Fetch list of container images using curl
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
