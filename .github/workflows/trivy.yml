@@ -31,19 +31,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-
-          # Fetch list of container images using `gh api` to query GitHub Packages API
-          IMAGES=$(gh api --paginate /users/${{ github.actor }}/packages/container --jq '.[].name')
+          
+          # Fetch list of container images using curl
+          IMAGES=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.actor }}/packages/container?per_page=100" \
+            | jq -r '.[].name')
 
           echo "Images: $IMAGES"
 
           STABLE_IMAGES=()
-
-          # Loop through package names and fetch stable tags
+          # Extract image names and fetch stable tags
           for PACKAGE in $IMAGES; do
-            # Fetch image versions and stable tags using `gh api`
-            TAGS=$(gh api --paginate /users/${{ github.actor }}/packages/container/${PACKAGE}/versions \
-              --jq '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
+            TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/users/${{ github.actor }}/packages/container/${PACKAGE}/versions?per_page=100" \
+              | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
 
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
