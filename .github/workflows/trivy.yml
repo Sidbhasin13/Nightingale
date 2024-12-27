@@ -26,21 +26,47 @@ jobs:
           CR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
+      name: Trivy Scan
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs every 24 hours
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  setup:
+    name: Setup and Fetch Images
+    runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.fetch_images.outputs.images }}
+    steps:
+      - name: Authenticate with GitHub Container Registry
+        env:
+          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
+
       - name: Set GitHub Token for CLI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /repos/rajanagori/nightingale/packages/container
+          
+          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /repos/rajanagori/nightingale/packages/container)
 
-          echo "Images Found: $IMAGES"
+          echo "Images found: $IMAGES"
 
+          # Fetch stable versions for each image
           STABLE_IMAGES=()
           for IMAGE in $(echo $IMAGES | jq -r '.[].name'); do
+            # Fetch versions for each image in the Sid/xyz_repo container registry
             TAGS=$(gh api -H "Accept: application/vnd.github+json" \
               /repos/rajanagori/nightingale/packages/container/${IMAGE}/versions \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
-            
+
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
                 STABLE_IMAGES+=("ghcr.io/rajanagori/nightingale/${IMAGE}:${TAG}")
