@@ -31,26 +31,38 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-        
-          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /repos/rajanagori/nightingale/packages/container)
+          
+          # Fetch the list of container images from the organization
+          IMAGES=$(gh api -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /orgs/RAJANAGORI/packages?package_type=container)
 
           echo "Images found: $IMAGES"
 
+          # Initialize an empty array to store stable images
           STABLE_IMAGES=()
 
+          # Loop through each image to fetch its versions and tags
           for IMAGE in $(echo $IMAGES | jq -r '.[].name'); do
+            # Fetch versions for each image
             TAGS=$(gh api -H "Accept: application/vnd.github+json" \
-              /repos/rajanagori/nightingale/packages/container/${IMAGE}/versions \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              /orgs/RAJANAGORI/packages/container/${IMAGE}/versions \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
 
+            # Loop through each tag to select stable tags
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
-                STABLE_IMAGES+=("ghcr.io/rajanagori/nightingale/${IMAGE}:${TAG}")
+                # Add the stable image to the list
+                STABLE_IMAGES+=("ghcr.io/RAJANAGORI/xuz/${IMAGE}:${TAG}")
               fi
             done
           done
 
+          # Print the stable images found for debugging
           echo "Stable images found: ${STABLE_IMAGES[*]}"
+
+          # Set the output variable for subsequent jobs
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
   download:
