@@ -43,38 +43,45 @@ jobs:
             exit 1
           fi
 
-      - name: Cache Trivy DB
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-db-${{ github.sha }}-${{ github.run_id }}-${{ env.cache_key }}
-          restore-keys: |
-            ${{ runner.os }}-trivy-db-${{ env.cache_key }}
-
-      - name: Set cache key based on the date
-        id: date
+      - name: Check if Trivy is installed
         run: |
-          echo "cache_key=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-
-      - name: Install Trivy
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
-      
-      - name: Check cache age and refresh Trivy DB if expired
-        run: |
-          CACHE_PATH="${HOME}/.cache/trivy/db"
-          CACHE_AGE=$(( $(date +%s) - $(stat -c %Y "$CACHE_PATH") ))
-          MAX_AGE=$((24 * 60 * 60))  # 24 hours in seconds
-
-          if [ $CACHE_AGE -gt $MAX_AGE ]; then
-            echo "Cache is older than 24 hours. Refreshing Trivy database..."
-            trivy --cache-dir ${HOME}/.cache/trivy --refresh  # Refresh the database if the cache is expired
+          if ! command -v trivy &> /dev/null; then
+            echo "Trivy is not installed. Installing Trivy..."
+            sudo apt-get update
+            sudo apt-get install -y wget
+            wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
+            sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
           else
-            echo "Cache is fresh. Skipping Trivy database refresh."
+            echo "Trivy is already installed."
           fi
+      
+      - name: Check if 24 hours have passed since the last refresh of Trivy DB
+        run: |
+          if [ -f "${HOME}/.trivy_last_refresh" ]; then
+            LAST_REFRESH=$(cat ${HOME}/.trivy_last_refresh)
+            CURRENT_TIME=$(date +%s)
+            TIME_DIFF=$((CURRENT_TIME - LAST_REFRESH))
+            MAX_TIME_DIFF=$((24 * 60 * 60))
+
+            if [ $TIME_DIFF -gt $MAX_TIME_DIFF ]; then
+              echo "24 hours have passed. Proceeding to refresh the Trivy database."
+              echo "true" >> $GITHUB_ENV  
+            else
+              echo "Less than 24 hours since last refresh. Skipping refresh."
+              echo "false" >> $GITHUB_ENV 
+            fi
+          else
+            echo "No refresh file found. Performing refresh."
+            echo "true" >> $GITHUB_ENV
+          fi
+
+      - name: Force Trivy to refresh the database if needed
+        if: env.REFRESH == 'true'
+        run: |
+          echo "Refreshing Trivy database..."
+          trivy --cache-dir ${HOME}/.cache/trivy --refresh
+
+          date +%s > ${HOME}/.trivy_last_refresh
 
       - name: Run Trivy vulnerability scanner
         run: |
