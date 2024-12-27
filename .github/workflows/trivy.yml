@@ -119,14 +119,14 @@ jobs:
           mv sbom.cyclonedx.json artifacts/
 
           zip -r artifacts.zip artifacts/
+      
+      - name: Upload SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'artifacts/trivy-results.sarif'
 
       - name: Upload the ZIP file as an artifact
         uses: actions/upload-artifact@v3
         with:
           name: trivy-artifacts
           path: artifacts.zip
-      
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
