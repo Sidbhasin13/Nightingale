@@ -31,22 +31,23 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /rajanagori/nightingale/packages/container \
-            | jq -r '.[] | select(.package_type=="container") | .name')
+          IMAGES=$(gh api -H "Accept: application/vnd.github+json" /repos/rajanagori/nightingale/packages/container
+
+          echo "Images Found: $IMAGES"
 
           STABLE_IMAGES=()
-          for IMAGE in $IMAGES; do
+          for IMAGE in $(echo $IMAGES | jq -r '.[].name'); do
             TAGS=$(gh api -H "Accept: application/vnd.github+json" \
-              /rajanagori/nightingale/packages/container/${IMAGE}/versions \
+              /repos/rajanagori/nightingale/packages/container/${IMAGE}/versions \
               | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
             
             for TAG in $TAGS; do
               if [[ "$TAG" == *"stable"* ]]; then
-                STABLE_IMAGES+=("ghcr.io/rajanagori/${IMAGE}:${TAG}")
+                STABLE_IMAGES+=("ghcr.io/rajanagori/nightingale/${IMAGE}:${TAG}")
               fi
             done
           done
-          
+
           echo "Stable images found: ${STABLE_IMAGES[*]}"
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
