@@ -110,9 +110,7 @@ jobs:
             echo "Warning: CycloneDX SBOM generation failed or lacked necessary security info."
           fi
 
-      - name: Save SARIF & SBOMs file as an artifact
-        uses: actions/upload-artifact@v3
-        with:- name: Create a ZIP file for artifacts
+      - name: Create a ZIP file for artifacts
         run: |
           mkdir -p artifacts
     
