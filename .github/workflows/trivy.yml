@@ -49,9 +49,16 @@ jobs:
 
           STABLE_IMAGES=()
           for PACKAGE in $IMAGES; do
+            # Fetch versions for each package and handle errors (e.g., 404 for no stable versions)
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
+
+            # If the version response is empty or contains "Not Found", skip the package
+            if [[ "$VERSIONS_RESPONSE" == *"Not Found"* || -z "$VERSIONS_RESPONSE" ]]; then
+              echo "No versions or 404 error for package: $PACKAGE, skipping..."
+              continue
+            fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
 
@@ -73,6 +80,7 @@ jobs:
           fi
 
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+
 
   scan:
     name: Run Trivy Scan and Generate SBOM
