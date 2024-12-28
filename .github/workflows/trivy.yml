@@ -1,166 +1,158 @@
-name: Trivy Scan
+setup:
+  name: Setup Environment, Prepare Cache and Dependencies
+  runs-on: ubuntu-latest
+  outputs:
+    images: ${{ steps.fetch_images.outputs.images }}
+    trivy_cache_key: ${{ steps.prepare_trivy_cache.outputs.cache_key }}
+  steps:
+    - name: Install Dependencies
+      run: sudo apt-get update && sudo apt-get install -y wget jq zip
 
-on:
-  push:
-    branches: ["debug-trivy-scan-issue"]
-    paths:
-      - ".github/workflows/trivy.yml"
-  pull_request:
-    branches: ["debug-trivy-scan-issue"]
-    paths:
-      - ".github/workflows/trivy.yml"
+    - name: Create Required Directories
+      run: |
+        mkdir -p ~/.cache/trivy
+        mkdir -p /usr/local/bin
+        mkdir -p shared  # Ensure the shared directory exists for saving Docker images
 
-permissions:
-  contents: read
-  security-events: write
+    - name: Cache Trivy Binary and Database
+      id: prepare_trivy_cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          /usr/local/bin/trivy
+          ~/.cache/trivy
+        key: trivy-setup-cache
+        restore-keys: |
+          trivy-setup-cache
 
-jobs:
-  setup:
-    name: Setup Environment, Prepare Cache and Dependencies
-    runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.fetch_images.outputs.images }}
-      trivy_cache_key: ${{ steps.prepare_trivy_cache.outputs.cache_key }}
-    steps:
-      - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y wget jq zip
+    - name: Install Trivy if Not Cached
+      if: steps.prepare_trivy_cache.outputs.cache-hit != 'true'
+      run: |
+        echo "Installing Trivy..."
+        wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
+        sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
+        rm trivy_0.57.0_Linux-64bit.deb
+        trivy image --download-db-only
 
-      - name: Create Required Directories
-        run: |
-          mkdir -p ~/.cache/trivy
-          mkdir -p /usr/local/bin
-          mkdir -p shared  # Ensure the shared directory exists for saving Docker images
+    - name: Authenticate with GitHub Container Registry
+      env:
+        CR_PAT: ${{ secrets.TOKEN }}
+      run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Cache Trivy Binary and Database
-        id: prepare_trivy_cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            /usr/local/bin/trivy
-            ~/.cache/trivy
-          key: trivy-setup-cache
-          restore-keys: |
-            trivy-setup-cache
+    - name: Fetch Stable Images from GitHub Container Registry
+      id: fetch_images
+      env:
+        GH_TOKEN: ${{ secrets.TOKEN }}
+      run: |
+        echo "Fetching stable images from GitHub Container Registry..."
+        RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/users/rajanagori/packages?package_type=container")
 
-      - name: Install Trivy if Not Cached
-        if: steps.prepare_trivy_cache.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing Trivy..."
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
-          rm trivy_0.57.0_Linux-64bit.deb
-          trivy image --download-db-only
+        IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
-      - name: Authenticate with GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.TOKEN }}
-        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
-      - name: Fetch Stable Images from GitHub Container Registry
-        id: fetch_images
-        env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
-        run: |
-          echo "Fetching stable images from GitHub Container Registry..."
-          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+        STABLE_IMAGES=()
+        for PACKAGE in $IMAGES; do
+          VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/rajanagori/packages?package_type=container")
+            "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
 
-          IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
+          TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]? | select(. | contains("stable"))')
 
-          STABLE_IMAGES=()
-          for PACKAGE in $IMAGES; do
-            VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
+          if [[ -n "$TAGS" ]]; then
+            for TAG in $TAGS; do
+              STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
+            done
+          fi
+        done
 
-            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]? | select(. | contains("stable"))')
+        echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
-            if [[ -n "$TAGS" ]]; then
-              for TAG in $TAGS; do
-                STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
-              done
-            fi
-          done
+prepare:
+  name: Pre-download Trivy DB and Images
+  needs: setup  # Ensures this job runs after setup
+  runs-on: ubuntu-latest
+  outputs:
+    shared_zip: ${{ steps.prepare_shared.outputs.shared_zip }}
+  steps:
+    - name: Pre-pull and Save Docker Images
+      run: |
+        IMAGES=${{ needs.setup.outputs.images }}
+        mkdir -p shared  # Ensure shared directory is created
+        echo "Pulling and saving Docker images..."
+        for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
+          echo "Pulling image $IMAGE"
+          docker pull $IMAGE || exit 1
+          IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
+          # Save Docker image to shared directory
+          if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
+            echo "Image $IMAGE saved successfully to shared/${IMAGE_NAME}.tar"
+          else
+            echo "Failed to save image $IMAGE"
+            exit 1
+          fi
+        done
 
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+    - name: List Files in Shared Directory (Debugging)
+      run: |
+        echo "Listing files in the shared directory:"
+        ls -l shared/
 
-  prepare:
-    name: Pre-download Trivy DB and Images
-    needs: setup  # Ensures this job runs after setup
-    runs-on: ubuntu-latest
-    outputs:
-      shared_zip: ${{ steps.prepare_shared.outputs.shared_zip }}
-    steps:
-      - name: Pre-pull and Save Docker Images
-        run: |
-          IMAGES=${{ needs.setup.outputs.images }}
-          for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
-            docker pull $IMAGE || exit 1
-            IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
-            # Save Docker image to shared directory
-            if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
-              echo "Image $IMAGE saved successfully."
-            else
-              echo "Failed to save image $IMAGE"
-              exit 1
-            fi
-          done
+    - name: Compress Shared Files
+      id: prepare_shared
+      run: |
+        echo "Compressing shared directory into zip..."
+        zip -r shared-images.zip shared/
+        echo "::set-output name=shared_zip::$(pwd)/shared-images.zip"
 
-      - name: Compress Shared Files
-        id: prepare_shared
-        run: |
-          zip -r shared-images.zip shared/
-          echo "::set-output name=shared_zip::$(pwd)/shared-images.zip"
+    - name: Upload Shared ZIP
+      uses: actions/upload-artifact@v3
+      with:
+        name: shared-images
+        path: shared-images.zip
 
-      - name: Upload Shared ZIP
-        uses: actions/upload-artifact@v3
-        with:
-          name: shared-images
-          path: shared-images.zip
+scan:
+  name: Trivy Scan
+  needs: [setup, prepare]  # Ensures this job runs after 'prepare'
+  runs-on: ubuntu-latest
+  strategy:
+    matrix:
+      image: ${{ fromJson(needs.setup.outputs.images) }}
+  steps:
+    - name: Load Cached Trivy Binary and Database
+      uses: actions/cache@v3
+      with:
+        path: |
+          /usr/local/bin/trivy
+          ~/.cache/trivy
+        key: ${{ needs.setup.outputs.trivy_cache_key }}
+        restore-keys: |
+          trivy-setup-cache
 
-  scan:
-    name: Trivy Scan
-    needs: [setup, prepare]  # Ensures this job runs after 'prepare'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        image: ${{ fromJson(needs.setup.outputs.images) }}
-    steps:
-      - name: Load Cached Trivy Binary and Database
-        uses: actions/cache@v3
-        with:
-          path: |
-            /usr/local/bin/trivy
-            ~/.cache/trivy
-          key: ${{ needs.setup.outputs.trivy_cache_key }}
-          restore-keys: |
-            trivy-setup-cache
+    - name: Download Shared ZIP
+      uses: actions/download-artifact@v3
+      with:
+        name: shared-images
 
-      - name: Download Shared ZIP
-        uses: actions/download-artifact@v3
-        with:
-          name: shared-images
+    - name: Extract Shared ZIP
+      run: unzip shared-images.zip
 
-      - name: Extract Shared ZIP
-        run: unzip shared-images.zip
+    - name: Load Pre-pulled Docker Image
+      run: |
+        IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
+        docker load < shared/${IMAGE_NAME}.tar
 
-      - name: Load Pre-pulled Docker Image
-        run: |
-          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          docker load < shared/${IMAGE_NAME}.tar
+    - name: Run Trivy Vulnerability Scanner
+      run: |
+        echo "Scanning ${{ matrix.image }}..."
+        trivy image \
+          --format sarif \
+          --output trivy-results-${{ matrix.image }}.sarif \
+          --severity CRITICAL,MEDIUM \
+          ${{ matrix.image }}
 
-      - name: Run Trivy Vulnerability Scanner
-        run: |
-          echo "Scanning ${{ matrix.image }}..."
-          trivy image \
-            --format sarif \
-            --output trivy-results-${{ matrix.image }}.sarif \
-            --severity CRITICAL,MEDIUM \
-            ${{ matrix.image }}
-
-      - name: Upload Results
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-results
-          path: trivy-results-${{ matrix.image }}.sarif
+    - name: Upload Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: trivy-results
+        path: trivy-results-${{ matrix.image }}.sarif
