@@ -31,8 +31,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
+          GH_USER="RAJANAGORI"
           echo "Fetching stable images from GitHub Container Registry..."
-		      GH_USER="RAJANAGORI"
 		  
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
