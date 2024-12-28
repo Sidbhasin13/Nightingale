@@ -43,11 +43,13 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - name: Install Dependencies and Cache
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget jq
-        # Cache Trivy and dependencies to avoid reinstalling every time
+
+      - name: Cache Trivy Database
+        id: cache_trivy
         uses: actions/cache@v3
         with:
           path: ~/.cache/trivy
