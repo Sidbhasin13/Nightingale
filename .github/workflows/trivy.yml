@@ -26,42 +26,21 @@ jobs:
           CR_PAT: ${{ secrets.GITHUB_TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Fetch Stable Images from GitHub Container Registry
-        env:
-          MY_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Set Manual Images List
+        id: set_images
         run: |
-          echo "Fetching stable images from GitHub Container Registry..."
-          GH_USER="RAJANAGORI" 
-          
-          # Fetch list of container images using curl
-          RESPONSE=$(curl --location 'https://api.github.com/users/RAJANAGORI/packages?package_type=container' \
-          --header 'Authorization: Bearer $MY_TOKEN')
-
-          # Debug: Print the response to check its structure
-          echo "API Response: $RESPONSE"
-
-          # # Extract image names (this assumes that the response is a JSON array of containers)
-          # IMAGES=$(echo $RESPONSE | jq -r '.[].name')
-
-          # echo "Images: $IMAGES"
-
-          # STABLE_IMAGES=()
-          # # Extract image names and fetch stable tags
-          # for PACKAGE in $IMAGES; do
-          #   TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-          #     -H "Accept: application/vnd.github.v3+json" \
-          #     "https://api.github.com/users/$GH_USER/packages/container/${PACKAGE}/versions?per_page=100" \
-          #     | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
-
-          #   for TAG in $TAGS; do
-          #     if [[ "$TAG" == *"stable"* ]]; then
-          #       STABLE_IMAGES+=("ghcr.io/$GH_USER/${PACKAGE}:${TAG}")
-          #     fi
-          #   done
-          # done
-
-          # echo "Stable images found: ${STABLE_IMAGES[*]}"
-          # echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+          # Define the list of images manually
+          IMAGES='[
+            "ghcr.io/rajanagori/nightingale:stable",
+            "ghcr.io/rajanagori/nightingale_programming_image:stable",
+            "ghcr.io/rajanagori/nightingale_osint_tools_image:stable",
+            "ghcr.io/rajanagori/nightingale_network_vapt_image:stable",
+            "ghcr.io/rajanagori/nightingale_wordlist_image:stable",
+            "ghcr.io/rajanagori/nightingale_mobile_vapt_image:stable",
+            "ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:stable",
+            "ghcr.io/rajanagori/nightingale_web_vapt_image:stable"
+          ]'
+          echo "::set-output name=images::$IMAGES"
 
   download:
     name: Pre-download Trivy DB and Images
