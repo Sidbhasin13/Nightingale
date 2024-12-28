@@ -40,8 +40,7 @@ jobs:
             "ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:stable",
             "ghcr.io/rajanagori/nightingale_web_vapt_image:stable"
           ]'
-          echo "${IMAGES}" > images.json
-          echo "IMAGES=$(cat images.json)" >> $GITHUB_ENV
+          echo "IMAGES=$IMAGES" >> $GITHUB_ENV
 
   download:
     name: Pre-download Trivy DB and Images
