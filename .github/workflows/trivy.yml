@@ -34,7 +34,7 @@ jobs:
           GH_USER="RAJANAGORI" 
           GH_REPO="Nightingale"
 
-          echo "GH_TOKEN: #$GHTOKEN"
+          echo "GH_TOKEN: #$GH_TOKEN"
           
           # Fetch list of container images using curl
           RESPONSE=$(curl --location 'https://api.github.com/users/$GH_USER/packages?package_type=container' \
