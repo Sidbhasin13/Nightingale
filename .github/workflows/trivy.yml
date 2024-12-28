@@ -64,9 +64,8 @@ jobs:
           echo "Fetching stable images from GitHub Container Registry..."
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/xyz/packages?package_type=container")
+            "https://api.github.com/users/rajanagori/packages?package_type=container")
 
-          # Debugging the API response
           echo "API Response: $RESPONSE"
 
           # Check if the response is valid JSON
@@ -91,7 +90,7 @@ jobs:
           for PACKAGE in $IMAGES; do
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/users/xyz/packages/container/${PACKAGE}/versions?per_page=100")
+              "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
 
             # Debugging the versions response
             echo "Versions Response: $VERSIONS_RESPONSE"
@@ -108,7 +107,7 @@ jobs:
 
             if [[ -n "$STABLE_TAGS" ]]; then
               for TAG in $STABLE_TAGS; do
-                STABLE_IMAGES+=("ghcr.io/xyz/${PACKAGE}:${TAG}")
+                STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
               done
             else
               echo "No stable tags found for package: $PACKAGE, skipping..."
