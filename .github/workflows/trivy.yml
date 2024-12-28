@@ -27,34 +27,34 @@ jobs:
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Fetch Stable Images from GitHub Container Registry
+        id: fetch_images
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
-          GH_USER="RAJANAGORI" 
-         
+		  GH_USER="RAJANAGORI"
+		  
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/$GH_USER/packages?package_type=container")
-        
+
           echo "API Response: $RESPONSE"
-         
-          IMAGES=$(echo $RESPONSE | jq -r '.[].name')
-          echo "Images: $IMAGES"
+
+          # Use jq to safely extract image names
+          IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
           STABLE_IMAGES=()
           for PACKAGE in $IMAGES; do
             TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/$GH_USER/packages/container/${PACKAGE}/versions?per_page=100" \
-              | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
+              | jq -r '[.[] | .metadata.container.tags[]] | map(select(. | contains("stable"))) | .[]' || echo "")
 
             for TAG in $TAGS; do
-              if [[ "$TAG" == *"stable"* ]]; then
-                STABLE_IMAGES+=("ghcr.io/$GH_USER/${PACKAGE}:${TAG}")
-              fi
+              STABLE_IMAGES+=("ghcr.io/$GH_USER/${PACKAGE}:${TAG}")
             done
           done
+
           echo "Stable images found: ${STABLE_IMAGES[*]}"
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
@@ -62,8 +62,6 @@ jobs:
     name: Pre-download Trivy DB and Images
     needs: setup
     runs-on: ubuntu-latest
-    outputs:
-      shared_dir: ${{ steps.prepare.outputs.shared_dir }}
     steps:
       - name: Install Dependencies
         run: |
@@ -79,32 +77,26 @@ jobs:
 
       - name: Refresh Trivy Database if Needed
         if: steps.cache_trivy.outputs.cache-hit != 'true'
-        run: |
-          echo "Refreshing Trivy database..."
-          trivy image --download-db-only
+        run: trivy image --download-db-only
 
-      - name: Prepare Shared Directory
-        id: prepare
+      - name: Pre-pull and Save Docker Images
         run: |
           mkdir -p shared
-          echo "::set-output name=shared_dir::$(pwd)/shared"
-
-      - name: Pre-pull Docker Images
-        run: |
-          echo "Pre-pulling all Docker images..."
           IMAGES=${{ needs.setup.outputs.images }}
-          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
-            docker pull $IMAGE
-          done
-
-      - name: Save Docker Images for Reuse
-        run: |
-          SHARED_DIR=${{ steps.prepare.outputs.shared_dir }}
-          IMAGES=${{ needs.setup.outputs.images }}
-          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
+          for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
+            docker pull $IMAGE || exit 1
             IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
-            docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
+            docker save $IMAGE > shared/${IMAGE_NAME}.tar
           done
+
+      - name: Compress Shared Files
+        run: zip -r shared-images.zip shared/
+
+      - name: Upload Shared ZIP
+        uses: actions/upload-artifact@v3
+        with:
+          name: shared-images
+          path: shared-images.zip
 
   scan:
     name: Trivy Scan
@@ -113,61 +105,46 @@ jobs:
     strategy:
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
-        architecture:
-          - linux/amd64
-          - linux/arm64
     steps:
       - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget jq
+        run: sudo apt-get update && sudo apt-get install -y wget jq
 
-      - name: Load Trivy Database from Cache
-        uses: actions/cache@v3
+      - name: Download and Extract Shared ZIP
+        uses: actions/download-artifact@v3
         with:
-          path: ~/.cache/trivy
-          key: trivy-db-cache
+          name: shared-images
+        run: unzip shared-images.zip
 
       - name: Load Pre-pulled Docker Image
         run: |
-          SHARED_DIR=${{ needs.download.outputs.shared_dir }}
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
+          docker load < shared/${IMAGE_NAME}.tar
 
-      - name: Run Trivy Vulnerability Scanner (SARIF)
+      - name: Run Trivy Vulnerability Scanner (SARIF and CycloneDX)
         run: |
-          echo "Scanning ${{ matrix.image }} for architecture ${{ matrix.architecture }}..."
+          echo "Scanning ${{ matrix.image }}..."
           trivy image \
-            --platform ${{ matrix.architecture }} \
             --format sarif \
-            --output trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif \
+            --output trivy-results-${{ matrix.image }}.sarif \
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
 
-      - name: Run Trivy Vulnerability Scanner (CycloneDX)
-        run: |
-          echo "Scanning ${{ matrix.image }} for architecture ${{ matrix.architecture }}..."
           trivy image \
-            --platform ${{ matrix.architecture }} \
             --format cyclonedx \
             --scanners vuln \
-            --output sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json \
+            --output sbom-${{ matrix.image }}.cyclonedx.json \
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
-            
-      - name: Upload SARIF to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif
 
-      - name: Prepare Artifacts
+      - name: Prepare ZIP File for Artifacts
         run: |
           mkdir -p artifacts
-          mv sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json artifacts/
-          mv trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif artifacts/
-      
-      - name: Upload Artifacts (SBOM and SARIF)
+          mv trivy-results-${{ matrix.image }}.sarif artifacts/
+          mv sbom-${{ matrix.image }}.cyclonedx.json artifacts/
+          zip -r trivy-artifacts-${{ matrix.image }}.zip artifacts/
+
+      - name: Upload Artifacts (Single ZIP)
         uses: actions/upload-artifact@v3
         with:
-          name: trivy-sbom-sarif-${{ matrix.image }}-${{ matrix.architecture }}
-          path: artifacts/
+          name: trivy-artifacts
+          path: trivy-artifacts-${{ matrix.image }}.zip
