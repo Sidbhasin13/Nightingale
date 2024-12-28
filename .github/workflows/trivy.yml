@@ -18,30 +18,52 @@ jobs:
   setup:
     name: Setup and Fetch Images
     runs-on: ubuntu-latest
+    outputs:
+      images: ${{ steps.fetch_images.outputs.images }}
     steps:
       - name: Authenticate with GitHub Container Registry
         env:
-          CR_PAT: ${{ secrets.GITHUB_TOKEN }}
+          CR_PAT: ${{ secrets.TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Set Manual Images List
+      - name: Fetch Stable Images from GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
-          IMAGES='[
-            "ghcr.io/rajanagori/nightingale:stable",
-            "ghcr.io/rajanagori/nightingale_programming_image:stable",
-            "ghcr.io/rajanagori/nightingale_osint_tools_image:stable",
-            "ghcr.io/rajanagori/nightingale_network_vapt_image:stable",
-            "ghcr.io/rajanagori/nightingale_wordlist_image:stable",
-            "ghcr.io/rajanagori/nightingale_mobile_vapt_image:stable",
-            "ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:stable",
-            "ghcr.io/rajanagori/nightingale_web_vapt_image:stable"
-          ]'
-          echo "IMAGES=$IMAGES" >> $GITHUB_ENV
+          echo "Fetching stable images from GitHub Container Registry..."
+          GH_USER="RAJANAGORI" 
+         
+          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/$GH_USER/packages?package_type=container")
+        
+          echo "API Response: $RESPONSE"
+         
+          IMAGES=$(echo $RESPONSE | jq -r '.[].name')
+          echo "Images: $IMAGES"
+          STABLE_IMAGES=()
+
+          for PACKAGE in $IMAGES; do
+            TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/users/$GH_USER/packages/container/${PACKAGE}/versions?per_page=100" \
+              | jq -r '.[] | select(.metadata.container.tags[] | contains("stable")) | .metadata.container.tags[]')
+
+            for TAG in $TAGS; do
+              if [[ "$TAG" == *"stable"* ]]; then
+                STABLE_IMAGES+=("ghcr.io/$GH_USER/${PACKAGE}:${TAG}")
+              fi
+            done
+          done
+          echo "Stable images found: ${STABLE_IMAGES[*]}"
+          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
   download:
     name: Pre-download Trivy DB and Images
     needs: setup
     runs-on: ubuntu-latest
+    outputs:
+      shared_dir: ${{ steps.prepare.outputs.shared_dir }}
     steps:
       - name: Install Dependencies
         run: |
@@ -53,30 +75,35 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/trivy
-          key: trivy-db-cache-${{ runner.os }}
+          key: trivy-db-cache
 
-      - name: Install Trivy
+      - name: Refresh Trivy Database if Needed
+        if: steps.cache_trivy.outputs.cache-hit != 'true'
         run: |
-          echo "Installing Trivy..."
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          echo "Refreshing Trivy database..."
+          trivy image --download-db-only
 
-      - name: Cache Docker Images
-        id: docker_cache
-        uses: actions/cache@v3
-        with:
-          path: /tmp/docker
-          key: docker-images-${{ hashFiles('**/*.tar') }}  # Cache Docker images based on their tarball
-        continue-on-error: true  # Avoid failing if cache is not found
+      - name: Prepare Shared Directory
+        id: prepare
+        run: |
+          mkdir -p shared
+          echo "::set-output name=shared_dir::$(pwd)/shared"
 
       - name: Pre-pull Docker Images
         run: |
-          IMAGES=${{ env.IMAGES }}
-          echo "Pre-pulling Docker images..."
-          mkdir -p /tmp/docker
+          echo "Pre-pulling all Docker images..."
+          IMAGES=${{ needs.setup.outputs.images }}
           for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
-            if ! docker pull $IMAGE; then
-              docker save $IMAGE -o /tmp/docker/$(basename $IMAGE).tar
-            fi
+            docker pull $IMAGE
+          done
+
+      - name: Save Docker Images for Reuse
+        run: |
+          SHARED_DIR=${{ steps.prepare.outputs.shared_dir }}
+          IMAGES=${{ needs.setup.outputs.images }}
+          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
+            IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
+            docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
           done
 
   scan:
@@ -85,19 +112,27 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(env.IMAGES) }}
+        image: ${{ fromJson(needs.setup.outputs.images) }}
         architecture:
           - linux/amd64
           - linux/arm64
     steps:
-      - name: Load Docker Images from Cache
+      - name: Install Dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y wget jq
+
+      - name: Load Trivy Database from Cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-cache
+
+      - name: Load Pre-pulled Docker Image
+        run: |
+          SHARED_DIR=${{ needs.download.outputs.shared_dir }}
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          if [ -f "/tmp/docker/${IMAGE_NAME}.tar" ]; then
-            docker load < /tmp/docker/${IMAGE_NAME}.tar
-          else
-            docker pull ${{ matrix.image }}
-          fi
+          docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
 
       - name: Run Trivy Vulnerability Scanner (SARIF)
         run: |
@@ -119,7 +154,7 @@ jobs:
             --output sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json \
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
-
+            
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
@@ -130,7 +165,7 @@ jobs:
           mkdir -p artifacts
           mv sbom-${{ matrix.image }}-${{ matrix.architecture }}.cyclonedx.json artifacts/
           mv trivy-results-${{ matrix.image }}-${{ matrix.architecture }}.sarif artifacts/
-
+      
       - name: Upload Artifacts (SBOM and SARIF)
         uses: actions/upload-artifact@v3
         with:
