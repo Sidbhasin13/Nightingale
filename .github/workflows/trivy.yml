@@ -119,6 +119,22 @@ jobs:
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
 
+      - name: Upload Scan Results to Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-scan-results
+          path: artifacts/
+
+  final:
+    name: Collect Results, Create ZIP, and Upload
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Scan Results Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: trivy-scan-results
+
       - name: Create ZIP File for SARIF and SBOM
         run: |
           echo "Creating ZIP file for SARIF and SBOM files..."
