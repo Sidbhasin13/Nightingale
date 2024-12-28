@@ -107,10 +107,12 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y wget jq
 
-      - name: Download and Extract Shared ZIP
+      - name: Download Shared ZIP
         uses: actions/download-artifact@v3
         with:
           name: shared-images
+
+      - name: Extract Shared ZIP
         run: unzip shared-images.zip
 
       - name: Load Pre-pulled Docker Image
