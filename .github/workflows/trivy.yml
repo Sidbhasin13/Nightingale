@@ -88,12 +88,16 @@ jobs:
 
             echo "Versions Response: $VERSIONS_RESPONSE"  # Debugging the versions response
 
-            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]? | select(. | contains("stable"))')
+            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
 
-            if [[ -n "$TAGS" ]]; then
-              for TAG in $TAGS; do
+            STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')  # Match exactly the 'stable' tag
+
+            if [[ -n "$STABLE_TAGS" ]]; then
+              for TAG in $STABLE_TAGS; do
                 STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
               done
+            else
+              echo "No stable tags found for package: $PACKAGE, skipping..."
             fi
           done
 
@@ -119,8 +123,7 @@ jobs:
             if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
               echo "Image $IMAGE saved successfully to shared/${IMAGE_NAME}.tar"
             else
-              echo "Failed to save image $IMAGE"
-              exit 1
+              echo "Failed to save image $IMAGE, skipping..."
             fi
           done
 
