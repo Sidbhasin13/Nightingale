@@ -16,40 +16,13 @@ permissions:
 
 jobs:
   setup:
-    name: Setup Environment, Prepare Cache and Dependencies
+    name: Fetch Stable Images from GitHub Container Registry
     runs-on: ubuntu-latest
     outputs:
       images: ${{ steps.fetch_images.outputs.images }}
-      trivy_cache_key: ${{ steps.prepare_trivy_cache.outputs.cache_key }}
     steps:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y wget jq zip
-
-      - name: Create Required Directories
-        run: |
-          mkdir -p ~/.cache/trivy
-          mkdir -p /usr/local/bin
-          mkdir -p shared  # Ensure shared directory exists for saving Docker images
-
-      - name: Cache Trivy Binary and Database
-        id: prepare_trivy_cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            /usr/local/bin/trivy
-            ~/.cache/trivy
-          key: trivy-setup-cache
-          restore-keys: |
-            trivy-setup-cache
-
-      - name: Install Trivy if Not Cached
-        if: steps.prepare_trivy_cache.outputs.cache-hit != 'true'
-        run: |
-          echo "Installing Trivy..."
-          wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
-          sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
-          rm trivy_0.57.0_Linux-64bit.deb
-          trivy image --download-db-only
 
       - name: Authenticate with GitHub Container Registry
         env:
@@ -66,16 +39,6 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/rajanagori/packages?package_type=container")
 
-          echo "API Response: $RESPONSE"
-
-          # Check if the response is valid JSON
-          if echo "$RESPONSE" | jq empty; then
-            echo "Successfully parsed the JSON response."
-          else
-            echo "Failed to parse JSON response. Exiting."
-            exit 1
-          fi
-
           # Extract images and check for valid entries
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
@@ -84,21 +47,11 @@ jobs:
             exit 1
           fi
 
-          echo "Fetched Images: $IMAGES"  # Debugging the image list
-
           STABLE_IMAGES=()
           for PACKAGE in $IMAGES; do
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
-
-            # Debugging the versions response
-            echo "Versions Response: $VERSIONS_RESPONSE"
-
-            if [[ "$VERSIONS_RESPONSE" == *"Not Found"* ]]; then
-              echo "Package $PACKAGE not found. Skipping..."
-              continue
-            fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
 
@@ -121,95 +74,23 @@ jobs:
 
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
-  prepare:
-    name: Pre-download Trivy DB and Images
-    needs: setup
-    runs-on: ubuntu-latest
-    outputs:
-      shared_zip: ${{ steps.prepare_shared.outputs.shared_zip }}
-    steps:
-      - name: Authenticate with Docker Registry (Docker Hub / GHCR)
-        env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-
-      - name: Pre-pull and Save Docker Images
-        run: |
-          IMAGES=${{ needs.setup.outputs.images }}
-          mkdir -p shared
-          echo "Pulling and saving Docker images..."
-          if [ -z "$IMAGES" ]; then
-            echo "No images to pull. Skipping this step."
-            exit 0
-          fi
-          for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
-            echo "Pulling image $IMAGE"
-            docker pull $IMAGE || { echo "Failed to pull image $IMAGE"; exit 1; }
-            IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
-
-            if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
-              echo "Image $IMAGE saved successfully to shared/${IMAGE_NAME}.tar"
-            else
-              echo "Failed to save image $IMAGE, skipping..."
-              exit 1
-            fi
-          done
-
-      - name: List Files in Shared Directory (Debugging)
-        run: |
-          echo "Listing files in the shared directory:"
-          ls -l shared/
-
-      - name: Compress Shared Files
-        id: prepare_shared
-        run: |
-          echo "Compressing shared directory into zip..."
-          if [ "$(ls -A shared/)" ]; then
-            zip -r shared-images.zip shared/
-            echo "::set-output name=shared_zip::$(pwd)/shared-images.zip"
-          else
-            echo "No images to compress in the shared directory."
-            exit 1
-
-      - name: Upload Shared ZIP
-        uses: actions/upload-artifact@v3
-        with:
-          name: shared-images
-          path: shared-images.zip
-
   scan:
-    name: Trivy Scan
-    needs: [setup, prepare]
+    name: Run Trivy Scan and Generate SBOM
+    needs: setup
     runs-on: ubuntu-latest
     strategy:
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
     steps:
-      - name: Load Cached Trivy Binary and Database
-        uses: actions/cache@v3
-        with:
-          path: |
-            /usr/local/bin/trivy
-            ~/.cache/trivy
-          key: ${{ needs.setup.outputs.trivy_cache_key }}
-          restore-keys: |
-            trivy-setup-cache
-
-      - name: Download Shared ZIP
-        uses: actions/download-artifact@v3
-        with:
-          name: shared-images
-
-      - name: Extract Shared ZIP
-        run: unzip shared-images.zip
-
-      - name: Load Pre-pulled Docker Image
+      - name: Install Trivy
         run: |
-          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          docker load < shared/${IMAGE_NAME}.tar
+          echo "Installing Trivy..."
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
+          rm trivy_0.57.0_Linux-64bit.deb
+          trivy image --download-db-only
 
-      - name: Run Trivy Vulnerability Scanner
+      - name: Run Trivy Vulnerability Scanner (SARIF)
         run: |
           echo "Scanning ${{ matrix.image }}..."
           trivy image \
@@ -218,8 +99,29 @@ jobs:
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
 
-      - name: Upload Results
+      - name: Generate CycloneDX SBOM
+        run: |
+          echo "Generating CycloneDX SBOM for ${{ matrix.image }}..."
+          trivy image \
+            --format cyclonedx \
+            --scanners vuln \
+            --output sbom-${{ matrix.image }}.cyclonedx.json \
+            ${{ matrix.image }}
+
+      - name: Create ZIP File for SARIF and SBOM
+        run: |
+          mkdir -p artifacts
+          mv trivy-results-${{ matrix.image }}.sarif artifacts/
+          mv sbom-${{ matrix.image }}.cyclonedx.json artifacts/
+          zip -r artifacts.zip artifacts/
+
+      - name: Upload Results to GitHub
         uses: actions/upload-artifact@v3
         with:
-          name: trivy-results
-          path: trivy-results-${{ matrix.image }}.sarif
+          name: trivy-artifacts
+          path: artifacts.zip
+
+      - name: Upload SARIF to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'artifacts/trivy-results-${{ matrix.image }}.sarif'
