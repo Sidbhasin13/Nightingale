@@ -31,12 +31,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
-          GH_USER="RAJANAGORI"
           echo "Fetching stable images from GitHub Container Registry..."
 		  
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/$GH_USER/packages?package_type=container")
+            "https://api.github.com/users/RAJANAGORI/packages?package_type=container")
 
           echo "API Response: $RESPONSE"
 
@@ -47,11 +46,11 @@ jobs:
           for PACKAGE in $IMAGES; do
             TAGS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/users/$GH_USER/packages/container/${PACKAGE}/versions?per_page=100" \
+              "https://api.github.com/users/RAJANAGORI/packages/container/${PACKAGE}/versions?per_page=100" \
               | jq -r '[.[] | .metadata.container.tags[]] | map(select(. | contains("stable"))) | .[]' || echo "")
 
             for TAG in $TAGS; do
-              STABLE_IMAGES+=("ghcr.io/$GH_USER/${PACKAGE}:${TAG}")
+              STABLE_IMAGES+=("ghcr.io/RAJANAGORI/${PACKAGE}:${TAG}")
             done
           done
 
