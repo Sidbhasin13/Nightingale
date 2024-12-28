@@ -18,8 +18,6 @@ jobs:
   setup:
     name: Setup and Fetch Images
     runs-on: ubuntu-latest
-    outputs:
-      images: ${{ env.IMAGES }}
     steps:
       - name: Authenticate with GitHub Container Registry
         env:
@@ -27,9 +25,7 @@ jobs:
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
       - name: Set Manual Images List
-        id: set_images
         run: |
-          # Define the list of images manually
           IMAGES='[
             "ghcr.io/rajanagori/nightingale:stable",
             "ghcr.io/rajanagori/nightingale_programming_image:stable",
@@ -46,53 +42,39 @@ jobs:
     name: Pre-download Trivy DB and Images
     needs: setup
     runs-on: ubuntu-latest
-    outputs:
-      shared_dir: ${{ steps.prepare.outputs.shared_dir }}
     steps:
-      - name: Install Dependencies
+      - name: Install Dependencies and Cache
         run: |
           sudo apt-get update
           sudo apt-get install -y wget jq
-      
+        # Cache Trivy and dependencies to avoid reinstalling every time
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-cache-${{ runner.os }}
+
       - name: Install Trivy
         run: |
           echo "Installing Trivy..."
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Cache Trivy Database
-        id: cache_trivy
+      - name: Cache Docker Images
+        id: docker_cache
         uses: actions/cache@v3
         with:
-          path: ~/.cache/trivy
-          key: trivy-db-cache
-
-      - name: Refresh Trivy Database if Needed
-        if: steps.cache_trivy.outputs.cache-hit != 'true'
-        run: |
-          echo "Refreshing Trivy database..."
-          trivy image --download-db-only
-
-      - name: Prepare Shared Directory
-        id: prepare
-        run: |
-          mkdir -p shared
-          echo "shared_dir=$(pwd)/shared" >> $GITHUB_ENV
+          path: /tmp/docker
+          key: docker-images-${{ hashFiles('**/*.tar') }}  # Cache Docker images based on their tarball
+        continue-on-error: true  # Avoid failing if cache is not found
 
       - name: Pre-pull Docker Images
         run: |
-          echo "Pre-pulling all Docker images..."
           IMAGES=${{ env.IMAGES }}
+          echo "Pre-pulling Docker images..."
+          mkdir -p /tmp/docker
           for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
-            docker pull $IMAGE
-          done
-
-      - name: Save Docker Images for Reuse
-        run: |
-          SHARED_DIR=${{ env.shared_dir }}
-          IMAGES=${{ env.IMAGES }}
-          for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
-            IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
-            docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
+            if ! docker pull $IMAGE; then
+              docker save $IMAGE -o /tmp/docker/$(basename $IMAGE).tar
+            fi
           done
 
   scan:
@@ -101,27 +83,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(needs.setup.outputs.images) }}
+        image: ${{ fromJson(env.IMAGES) }}
         architecture:
           - linux/amd64
           - linux/arm64
     steps:
-      - name: Install Dependencies
+      - name: Load Docker Images from Cache
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget jq
-
-      - name: Load Trivy Database from Cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-cache
-
-      - name: Load Pre-pulled Docker Image
-        run: |
-          SHARED_DIR=${{ env.shared_dir }}
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
+          if [ -f "/tmp/docker/${IMAGE_NAME}.tar" ]; then
+            docker load < /tmp/docker/${IMAGE_NAME}.tar
+          else
+            docker pull ${{ matrix.image }}
+          fi
 
       - name: Run Trivy Vulnerability Scanner (SARIF)
         run: |
