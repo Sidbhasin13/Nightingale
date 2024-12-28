@@ -23,28 +23,6 @@ jobs:
     steps:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y wget jq zip
-      
-      - name: Create Required Directories
-        run: |
-          mkdir -p ~/.cache/trivy
-          mkdir -p /usr/local/bin
-          mkdir -p shared
-
-      - name: Cache Trivy DB
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ runner.os }}-${{ hashFiles('**/trivy.db') }}
-          restore-keys: |
-            trivy-db-${{ runner.os }}-
-
-      - name: Cache Docker Images
-        uses: actions/cache@v3
-        with:
-          path: ~/.docker
-          key: docker-images-${{ runner.os }}-${{ hashFiles('Dockerfile') }}
-          restore-keys: |
-            docker-images-${{ runner.os }}-
 
       - name: Authenticate with GitHub Container Registry
         env:
@@ -129,6 +107,7 @@ jobs:
             --format sarif \
             --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
             --severity CRITICAL,MEDIUM \
+            --timeout 60m \
             ${{ matrix.image }}
 
       - name: Generate CycloneDX SBOM
@@ -140,31 +119,6 @@ jobs:
             --scanners vuln \
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
-      
-      - name: Load Docker Image and Extract Layers
-        run: |
-          IMAGE_NAME=${{ matrix.image }}
-          echo "Pulling image: $IMAGE_NAME"
-          docker pull $IMAGE_NAME
-          docker save $IMAGE_NAME -o image.tar
-          mkdir -p extracted_layers
-          tar -xf image.tar -C extracted_layers
-
-      - name: Scan Extracted Layers
-        run: |
-          for layer in extracted_layers/*; do
-            echo "Scanning layer: $layer"
-            trivy fs --format sarif --output artifacts/trivy-results-layer-${layer}.sarif --cache-dir ~/.cache/trivy $layer
-          done
-
-      - name: Combine Layer SARIF Results
-        run: |
-          echo "Combining SARIF results into one file"
-          cat artifacts/trivy-results-layer-*.sarif > artifacts/trivy-results-combined.sarif
-        
-      - name: Clean Up Image Tar
-        run: |
-          rm image.tar
 
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
