@@ -19,7 +19,7 @@ jobs:
     name: Setup and Fetch Images
     runs-on: ubuntu-latest
     outputs:
-      images: ${{ steps.fetch_images.outputs.images }}
+      images: ${{ env.IMAGES }}
     steps:
       - name: Authenticate with GitHub Container Registry
         env:
@@ -40,7 +40,7 @@ jobs:
             "ghcr.io/rajanagori/nightingale_forensic_and_red_teaming:stable",
             "ghcr.io/rajanagori/nightingale_web_vapt_image:stable"
           ]'
-          echo "::set-output name=images::$IMAGES"
+          echo "IMAGES=$IMAGES" >> $GITHUB_ENV
 
   download:
     name: Pre-download Trivy DB and Images
@@ -53,6 +53,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget jq
+      
+      - name: Install Trivy
+        run: |
+          echo "Installing Trivy..."
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Cache Trivy Database
         id: cache_trivy
@@ -71,32 +76,32 @@ jobs:
         id: prepare
         run: |
           mkdir -p shared
-          echo "::set-output name=shared_dir::$(pwd)/shared"
+          echo "shared_dir=$(pwd)/shared" >> $GITHUB_ENV
 
       - name: Pre-pull Docker Images
         run: |
           echo "Pre-pulling all Docker images..."
-          IMAGES=${{ needs.setup.outputs.images }}
+          IMAGES=${{ env.IMAGES }}
           for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
             docker pull $IMAGE
           done
 
       - name: Save Docker Images for Reuse
         run: |
-          SHARED_DIR=${{ steps.prepare.outputs.shared_dir }}
-          IMAGES=${{ needs.setup.outputs.images }}
+          SHARED_DIR=${{ env.shared_dir }}
+          IMAGES=${{ env.IMAGES }}
           for IMAGE in $(echo $IMAGES | jq -r '.[]'); do
             IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
             docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
           done
-
+          
   scan:
     name: Trivy Scan
     needs: download
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(needs.setup.outputs.images) }}
+        image: ${{ fromJson(env.IMAGES) }}
         architecture:
           - linux/amd64
           - linux/arm64
@@ -114,7 +119,7 @@ jobs:
 
       - name: Load Pre-pulled Docker Image
         run: |
-          SHARED_DIR=${{ needs.download.outputs.shared_dir }}
+          SHARED_DIR=${{ env.shared_dir }}
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           docker load < ${SHARED_DIR}/${IMAGE_NAME}.tar
 
