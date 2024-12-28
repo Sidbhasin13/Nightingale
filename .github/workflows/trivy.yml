@@ -38,7 +38,10 @@ jobs:
         if: steps.prepare_trivy_cache.outputs.cache-hit != 'true'
         run: |
           echo "Installing Trivy..."
-          wget -qO- https://github.com/aquasecurity/trivy/releases/latest/download/trivy_$(uname -s)_$(uname -m).tar.gz | tar zxvf - -C /usr/local/bin/
+          wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
+          sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
+          # Optionally, remove the .deb file after installation
+          rm trivy_0.57.0_Linux-64bit.deb
           trivy image --download-db-only
 
       - name: Authenticate with GitHub Container Registry
