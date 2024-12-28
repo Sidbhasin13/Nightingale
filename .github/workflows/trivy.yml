@@ -28,14 +28,14 @@ jobs:
 
       - name: Fetch Stable Images from GitHub Container Registry
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          MY_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
           GH_USER="RAJANAGORI" 
           
           # Fetch list of container images using curl
-          RESPONSE=$(curl --location 'https://api.github.com/users/$GH_USER/packages?package_type=container' \
-          --header 'Authorization: Bearer $GH_TOKEN')
+          RESPONSE=$(curl --location 'https://api.github.com/users/RAJANAGORI/packages?package_type=container' \
+          --header 'Authorization: Bearer $MY_TOKEN')
 
           # Debug: Print the response to check its structure
           echo "API Response: $RESPONSE"
