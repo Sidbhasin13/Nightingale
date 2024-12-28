@@ -55,23 +55,36 @@ jobs:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
+          # Fetch stable images from GitHub Container Registry
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/RAJANAGORI/packages?package_type=container")
 
-          echo "API Response: $RESPONSE"
+          echo "API Response: $RESPONSE"  # Debugging output to check the structure of the response
+
+          # Extract package names
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
           STABLE_IMAGES=()
           for PACKAGE in $IMAGES; do
+            # Fetch versions for the current package
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/RAJANAGORI/packages/container/${PACKAGE}/versions?per_page=100")
 
+            # Debugging output to check the version response structure
             echo "Versions Response for ${PACKAGE}: $VERSIONS_RESPONSE"
 
-            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[] | select(.metadata.container.tags[]? | contains("stable")) | .metadata.container.tags[]')
+            # Check if the response is empty
+            if [[ "$VERSIONS_RESPONSE" == "[]" ]]; then
+              echo "No versions found for ${PACKAGE}, skipping..."
+              continue
+            fi
 
+            # Safely attempt to extract the stable tags (handle missing metadata gracefully)
+            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]? | select(. | contains("stable"))')
+
+            # If stable tags exist, add them to the list
             if [[ -n "$TAGS" ]]; then
               for TAG in $TAGS; do
                 STABLE_IMAGES+=("ghcr.io/RAJANAGORI/${PACKAGE}:${TAG}")
@@ -81,13 +94,17 @@ jobs:
             fi
           done
 
+          # If no stable images are found, skip the scan
           if [[ ${#STABLE_IMAGES[@]} -eq 0 ]]; then
             echo "No stable images found, skipping scan."
             exit 0
           fi
 
           echo "Stable images found: ${STABLE_IMAGES[*]}"
+
+          # Set the output for stable images
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+
 
   prepare:
     name: Pre-download Trivy DB and Images
