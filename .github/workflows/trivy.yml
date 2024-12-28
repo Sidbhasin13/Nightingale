@@ -28,7 +28,7 @@ jobs:
 
       - name: Fetch Stable Images from GitHub Container Registry
         env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching stable images from GitHub Container Registry..."
           GH_USER="RAJANAGORI" 
