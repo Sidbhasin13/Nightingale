@@ -34,11 +34,11 @@ jobs:
           GH_USER="RAJANAGORI" 
           GH_REPO="Nightingale"
 
-          echo "GH_TOKEN: #$GH_TOKEN"
+          echo "GH_TOKEN: $GH_TOKEN"
           
           # Fetch list of container images using curl
           RESPONSE=$(curl --location 'https://api.github.com/users/$GH_USER/packages?package_type=container' \
-          --header 'Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}')
+          --header 'Authorization: Bearer $GH_TOKEN')
 
           # Debug: Print the response to check its structure
           echo "API Response: $RESPONSE"
