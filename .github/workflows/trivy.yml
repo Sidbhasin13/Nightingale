@@ -41,6 +41,9 @@ jobs:
             "ghcr.io/rajanagori/nightingale_web_vapt_image:stable"
           ]'
           echo "IMAGES=$IMAGES" >> $GITHUB_ENV
+          echo "images=$(cat images.json)" >> $GITHUB_ENV
+        env:
+          OUTPUT_PATH: $GITHUB_ENV
 
   download:
     name: Pre-download Trivy DB and Images
@@ -94,14 +97,14 @@ jobs:
             IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
             docker save $IMAGE > ${SHARED_DIR}/${IMAGE_NAME}.tar
           done
-          
+
   scan:
     name: Trivy Scan
     needs: download
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(env.IMAGES) }}
+        image: ${{ fromJson(needs.setup.outputs.images) }}
         architecture:
           - linux/amd64
           - linux/arm64
