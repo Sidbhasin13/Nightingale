@@ -88,6 +88,11 @@ jobs:
 
             echo "Versions Response: $VERSIONS_RESPONSE"  # Debugging the versions response
 
+            if [[ "$VERSIONS_RESPONSE" == *"Not Found"* ]]; then
+              echo "Package $PACKAGE not found. Skipping..."
+              continue
+            fi
+
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
 
             STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')  # Match exactly the 'stable' tag
