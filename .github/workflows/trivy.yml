@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   setup:
-    name: Setup Environment and Fetch Images
+    name: Setup Environment, Prepare Cache and Dependencies
     runs-on: ubuntu-latest
     outputs:
       images: ${{ steps.fetch_images.outputs.images }}
@@ -24,6 +24,12 @@ jobs:
     steps:
       - name: Install Dependencies
         run: sudo apt-get update && sudo apt-get install -y wget jq zip
+
+      - name: Create Required Directories
+        run: |
+          mkdir -p ~/.cache/trivy
+          mkdir -p /usr/local/bin
+          mkdir -p shared  # Ensure the shared directory exists for saving Docker images
 
       - name: Cache Trivy Binary and Database
         id: prepare_trivy_cache
@@ -33,6 +39,8 @@ jobs:
             /usr/local/bin/trivy
             ~/.cache/trivy
           key: trivy-setup-cache
+          restore-keys: |
+            trivy-setup-cache
 
       - name: Install Trivy if Not Cached
         if: steps.prepare_trivy_cache.outputs.cache-hit != 'true'
@@ -56,9 +64,7 @@ jobs:
           echo "Fetching stable images from GitHub Container Registry..."
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/RAJANAGORI/packages?package_type=container")
-
-          echo "API Response: $RESPONSE"
+            "https://api.github.com/users/rajanagori/packages?package_type=container")
 
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
@@ -66,49 +72,39 @@ jobs:
           for PACKAGE in $IMAGES; do
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/users/RAJANAGORI/packages/container/${PACKAGE}/versions?per_page=100")
-
-            echo "Versions Response for ${PACKAGE}: $VERSIONS_RESPONSE"
-
-            if [[ "$VERSIONS_RESPONSE" == "[]" ]]; then
-              echo "No versions found for ${PACKAGE}, skipping..."
-              continue
-            fi
+              "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]? | select(. | contains("stable"))')
 
             if [[ -n "$TAGS" ]]; then
               for TAG in $TAGS; do
-                STABLE_IMAGES+=("ghcr.io/RAJANAGORI/${PACKAGE}:${TAG}")
+                STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
               done
-            else
-              echo "No stable tags found for ${PACKAGE}, skipping..."
             fi
           done
 
-          if [[ ${#STABLE_IMAGES[@]} -eq 0 ]]; then
-            echo "No stable images found, skipping scan."
-            exit 0
-          fi
-
-          echo "Stable images found: ${STABLE_IMAGES[*]}"
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
   prepare:
     name: Pre-download Trivy DB and Images
-    needs: setup
+    needs: setup  # Ensures this job runs after setup
     runs-on: ubuntu-latest
     outputs:
       shared_zip: ${{ steps.prepare_shared.outputs.shared_zip }}
     steps:
       - name: Pre-pull and Save Docker Images
         run: |
-          mkdir -p shared
           IMAGES=${{ needs.setup.outputs.images }}
           for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
             docker pull $IMAGE || exit 1
             IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
-            docker save $IMAGE > shared/${IMAGE_NAME}.tar
+            # Save Docker image to shared directory
+            if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
+              echo "Image $IMAGE saved successfully."
+            else
+              echo "Failed to save image $IMAGE"
+              exit 1
+            fi
           done
 
       - name: Compress Shared Files
@@ -125,7 +121,7 @@ jobs:
 
   scan:
     name: Trivy Scan
-    needs: [setup, prepare]
+    needs: [setup, prepare]  # Ensures this job runs after 'prepare'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -138,6 +134,8 @@ jobs:
             /usr/local/bin/trivy
             ~/.cache/trivy
           key: ${{ needs.setup.outputs.trivy_cache_key }}
+          restore-keys: |
+            trivy-setup-cache
 
       - name: Download Shared ZIP
         uses: actions/download-artifact@v3
