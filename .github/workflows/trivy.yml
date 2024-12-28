@@ -70,6 +70,8 @@ jobs:
               "https://api.github.com/users/RAJANAGORI/packages/container/${PACKAGE}/versions?per_page=100" \
               | jq -r '.[] | select(.metadata.container != null) | .metadata.container.tags[]' || echo "")
 
+            echo "TAGS Response: $TAGS"
+
             STABLE_TAGS=$(echo "$TAGS" | grep -E "stable")
             if [[ -z "$STABLE_TAGS" ]]; then
               echo "No stable tags found for ${PACKAGE}, skipping..."
