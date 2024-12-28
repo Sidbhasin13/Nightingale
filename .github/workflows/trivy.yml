@@ -33,6 +33,8 @@ jobs:
           echo "Fetching stable images from GitHub Container Registry..."
           GH_USER="RAJANAGORI" 
           GH_REPO="Nightingale"
+
+          echo "GH_TOKEN: #$GHTOKEN"
           
           # Fetch list of container images using curl
           RESPONSE=$(curl --location 'https://api.github.com/users/$GH_USER/packages?package_type=container' \
