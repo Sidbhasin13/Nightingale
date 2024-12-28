@@ -68,7 +68,7 @@ jobs:
 
           echo "API Response: $RESPONSE"  # Debugging the raw response
 
-          # Ensure valid JSON response
+          # Check if the response is valid JSON
           if echo "$RESPONSE" | jq empty; then
             echo "Successfully parsed the JSON response."
           else
@@ -76,7 +76,13 @@ jobs:
             exit 1
           fi
 
+          # Extract images and check for valid entries
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
+
+          if [ -z "$IMAGES" ]; then
+            echo "No container images found. Exiting."
+            exit 1
+          fi
 
           echo "Fetched Images: $IMAGES"  # Debugging the image list
 
@@ -95,7 +101,8 @@ jobs:
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
 
-            STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')  # Match exactly the 'stable' tag
+            # Check if there are stable tags
+            STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')
 
             if [[ -n "$STABLE_TAGS" ]]; then
               for TAG in $STABLE_TAGS; do
@@ -106,7 +113,6 @@ jobs:
             fi
           done
 
-          # Check if there are any stable images before proceeding
           if [ ${#STABLE_IMAGES[@]} -eq 0 ]; then
             echo "No stable images found, skipping the job."
             exit 0
@@ -130,10 +136,12 @@ jobs:
             echo "No images to pull. Skipping this step."
             exit 0
           fi
+
           for IMAGE in $(echo "$IMAGES" | jq -r '.[]'); do
             echo "Pulling image $IMAGE"
             docker pull $IMAGE || { echo "Failed to pull image $IMAGE"; exit 1; }
             IMAGE_NAME=$(echo $IMAGE | sed 's/[^a-zA-Z0-9]/_/g')
+            
             # Check if image was pulled successfully before saving
             if docker save $IMAGE > shared/${IMAGE_NAME}.tar; then
               echo "Image $IMAGE saved successfully to shared/${IMAGE_NAME}.tar"
