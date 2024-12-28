@@ -100,36 +100,37 @@ jobs:
 
       - name: Run Trivy Vulnerability Scanner (SARIF)
         run: |
+          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')  # Sanitize the image name
           echo "Scanning ${{ matrix.image }}..."
+          mkdir -p artifacts  # Create the artifacts directory to collect results
           trivy image \
             --format sarif \
-            --output trivy-results-${{ matrix.image }}.sarif \
+            --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
             --severity CRITICAL,MEDIUM \
             ${{ matrix.image }}
 
       - name: Generate CycloneDX SBOM
         run: |
+          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')  # Sanitize the image name
           echo "Generating CycloneDX SBOM for ${{ matrix.image }}..."
           trivy image \
             --format cyclonedx \
             --scanners vuln \
-            --output sbom-${{ matrix.image }}.cyclonedx.json \
+            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
 
       - name: Create ZIP File for SARIF and SBOM
         run: |
-          mkdir -p artifacts
-          mv trivy-results-${{ matrix.image }}.sarif artifacts/
-          mv sbom-${{ matrix.image }}.cyclonedx.json artifacts/
-          zip -r artifacts.zip artifacts/
-
-      - name: Upload Results to GitHub
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-artifacts
-          path: artifacts.zip
+          echo "Creating ZIP file for SARIF and SBOM files..."
+          zip -r artifacts.zip artifacts/  # Compress all results into one ZIP file
 
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: 'artifacts/trivy-results-${{ matrix.image }}.sarif'
+          sarif_file: 'artifacts/trivy-results-*.sarif'
+
+      - name: Upload Single ZIP Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-results-and-sbom
+          path: artifacts.zip
