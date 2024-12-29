@@ -156,10 +156,19 @@ jobs:
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
           
-      - name: Upload SARIF to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: '/home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif'
+      - name: Upload SARIF files to GitHub Security Tab
+        run: |
+          echo "Uploading SARIF files..."
+          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
+            if [[ -f "$sarif_file" ]]; then
+              echo "Uploading $sarif_file..."
+              uses: github/codeql-action/upload-sarif@v3
+              with:
+                sarif_file: "$sarif_file"
+            else
+              echo "No SARIF files found."
+            fi
+          done
 
       - name: Upload Single ZIP Artifact
         uses: actions/upload-artifact@v3
