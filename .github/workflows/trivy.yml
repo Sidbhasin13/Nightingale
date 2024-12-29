@@ -133,6 +133,28 @@ jobs:
             exit 1
           fi
 
+      - name: Combine SARIF Files
+        run: |
+          echo "Combining all SARIF files into a single SARIF..."
+          mkdir -p /home/runner/work/${{ github.repository }}/combined_sarif
+
+          # Start by copying the first SARIF file into the combined directory
+          cp artifacts/trivy-results-${IMAGE_NAME}.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+
+          # Iterate over all SARIF files in the artifacts directory and merge them into one
+          for sarif_file in artifacts/trivy-results-*.sarif; do
+            if [[ "$sarif_file" != "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+              # Merge current SARIF file into the combined SARIF file
+              jq -s '[.[][]] | {version: "2.1.0", runs: .}' \
+                /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif \
+                "$sarif_file" > /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp
+              mv /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+            fi
+          done
+
+          # Show the combined SARIF file to verify
+          cat /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -161,45 +183,11 @@ jobs:
         with:
           name: trivy-results-and-sbom
           path: artifacts.zip
-      
-      # - name: Check out the code
-      #   uses: actions/checkout@v4
-
-      - name: Clean and Combine all SARIF files into one (with error handling)
-        run: |
-          echo "Cleaning and combining SARIF files..."
-
-          # Initialize combined SARIF file
-          echo '{
-            "version": "2.1.0",
-            "runs": []
-          }' > /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-
-          # Process each SARIF file
-          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
-            echo "Processing $sarif_file"
-            
-            # Sanitize the SARIF file (clean non-ASCII or unwanted characters)
-            sanitized_sarif=$(mktemp)
-            sed -E 's/[[:space:]]+/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
-
-            # Extract the 'runs' array from the sanitized SARIF file and append it to the combined SARIF file
-            jq --argjson runs "$(jq '.runs' "$sanitized_sarif")" '.runs += $runs' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif.tmp
-
-            # Replace the original combined SARIF file with the updated one
-            mv /home/runner/work/${{ github.repository }}/combined-sarif.tmp /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-
-            # Clean up temporary sanitized SARIF file
-            rm -f "$sanitized_sarif"
-          done
-          # Ensure the final combined SARIF file is valid JSON
-          jq . /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
       - name: Upload combined SARIF file to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-          # token: ${{ secrets.TOKEN }}
+          sarif_file: /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
 
 
       # - name: Upload SARIF files to GitHub Security Tab
