@@ -162,8 +162,8 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Check out the code
-        uses: actions/checkout@v4
+      # - name: Check out the code
+      #   uses: actions/checkout@v4
 
       - name: Clean and Combine all SARIF files into one (with error handling)
         run: |
@@ -184,7 +184,7 @@ jobs:
             sed -E 's/[[:space:]]+/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
 
             # Stream process each file with jq and append results
-            jq 'try . catch {}' "$sanitized_sarif" | jq -s '.runs += .[][]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            jq '.runs' "$sanitized_sarif" >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
             # Clean up temporary sanitized SARIF file
             rm -f "$sanitized_sarif"
