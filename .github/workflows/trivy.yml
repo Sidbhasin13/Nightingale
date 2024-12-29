@@ -184,14 +184,17 @@ jobs:
             sed -E 's/[[:space:]]+/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
 
             runs_array=$(jq '.runs' "$sanitized_sarif")
+            tmp_combined_file=$(mktemp)
+            # Start with the base combined SARIF
+            cp /home/runner/work/${{ github.repository }}/combined-sarif.sarif "$tmp_combined_file"
 
-            # Append the extracted runs array to the combined SARIF file
-            jq --argjson new_runs "$runs_array" '.runs += $new_runs' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif.sarif.tmp && mv /home/runner/work/${{ github.repository }}/combined-sarif.sarif.tmp /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-
+            # Append the runs from the sanitized SARIF file to the combined file
+            jq --argjson new_runs "$runs_array" '.runs += $new_runs' "$tmp_combined_file" > /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            
             # Clean up temporary sanitized SARIF file
             rm -f "$sanitized_sarif"
           done
-          
+
           # Ensure the final file is valid JSON
           jq . /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
