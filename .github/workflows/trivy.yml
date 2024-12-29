@@ -173,12 +173,12 @@ jobs:
           }' > /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
           # Process each SARIF file
-          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif; do
+          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
             echo "Processing $sarif_file"
             
             # Sanitize the SARIF file (clean non-ASCII or unwanted characters)
             sanitized_sarif=$(mktemp)
-            sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
+            sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g; s/[^0-9.-]//g' "$sarif_file" > "$sanitized_sarif"
 
             # Stream process each file with jq and append results
             jq 'try . catch {}' "$sanitized_sarif" | jq -s '[.[][]]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
