@@ -156,6 +156,12 @@ jobs:
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
       
+      - name: Upload Single ZIP Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-results-and-sbom
+          path: artifacts.zip
+      
       - name: Checkout Code
         uses: actions/checkout@v3
 
@@ -168,16 +174,22 @@ jobs:
             TEMP_JSON=$(mktemp)
 
             # Step 1: Always attempt to clean up the JSON by replacing => with :
-            echo "Attempting to clean up SARIF file..."
+            echo "Cleaning up SARIF file..."
             sed 's/=>/:/g' $sarif_file > $sarif_file.fixed
 
-            # Step 2: Check if the file is valid JSON (even if we modified it)
+            # Step 2: Check if the file is valid JSON (even after modification)
             if jq . $sarif_file.fixed > /dev/null 2>&1; then
               echo "SARIF file fixed successfully or was already valid"
               mv $sarif_file.fixed $sarif_file
             else
-              echo "Unable to fix SARIF file. Aborting upload."
-              exit 1
+              echo "SARIF file is still invalid after cleanup. Checking the original file..."
+              # Attempt to check if the original file is valid JSON
+              if jq . $sarif_file > /dev/null 2>&1; then
+                echo "Original SARIF file is valid JSON, skipping modifications"
+              else
+                echo "Original SARIF file is also invalid. Aborting upload."
+                exit 1
+              fi
             fi
 
             # Step 3: Generate the payload with commit and ref info
@@ -198,9 +210,3 @@ jobs:
             # Clean up the temporary JSON file
             rm -f $TEMP_JSON
           done
-
-      - name: Upload Single ZIP Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-results-and-sbom
-          path: artifacts.zip
