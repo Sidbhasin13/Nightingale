@@ -189,7 +189,12 @@ jobs:
             # Clean up temporary sanitized SARIF file
             rm -f "$sanitized_sarif"
           done
-          jq -s '{ "version": "2.1.0", "runs": add }' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif-fixed.sarif
+          jq '{
+            "version": "2.1.0",
+            "runs": (.[0].runs + (.[1:] | map(.runs) | add))
+          }' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif-fixed.sarif
+
+          # Overwrite the combined SARIF file with the fixed version
           mv /home/runner/work/${{ github.repository }}/combined-sarif-fixed.sarif /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
       - name: Upload combined SARIF file to GitHub Security Tab
