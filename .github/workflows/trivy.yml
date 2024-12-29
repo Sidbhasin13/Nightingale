@@ -133,29 +133,30 @@ jobs:
             exit 1
           fi
 
-      - name: Combine SARIF Files
-        run: |
-          echo "Combining all SARIF files into a single SARIF..."
-          mkdir -p /home/runner/work/${{ github.repository }}/combined_sarif
+      # - name: Combine SARIF Files
+      #   run: |
+      #     echo "Combining all SARIF files into a single SARIF..."
+      #     mkdir -p /home/runner/work/${{ github.repository }}/combined_sarif
 
-          # Start by copying the first SARIF file into the combined directory
-          cp artifacts/trivy-results-*.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+      #     # Start by copying the first SARIF file into the combined directory
+      #     cp artifacts/trivy-results-*.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
 
-          # Iterate over all SARIF files in the artifacts directory and merge them into one
-          for sarif_file in artifacts/trivy-results-*.sarif; do
-            if [[ "$sarif_file" != "artifacts/trivy-results-*.sarif" ]]; then
-              # Merge current SARIF file into the combined SARIF file
-              jq -s '[.[][]] | {version: "2.1.0", runs: .}' \
-                /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif \
-                "$sarif_file" > /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp
-              mv /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
-            fi
-          done
+      #     # Iterate over all SARIF files in the artifacts directory and merge them into one
+      #     for sarif_file in artifacts/trivy-results-*.sarif; do
+      #       if [[ "$sarif_file" != "artifacts/trivy-results-*.sarif" ]]; then
+      #         # Merge current SARIF file into the combined SARIF file
+      #         jq -s '[.[][]] | {version: "2.1.0", runs: .}' \
+      #           /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif \
+      #           "$sarif_file" > /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp
+      #         mv /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+      #       fi
+      #     done
       
       - name: Upload combined SARIF file to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+          sarif_file: trivy-results-*.sarif
+          path: artifacts/
 
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
@@ -185,11 +186,3 @@ jobs:
         with:
           name: trivy-results-and-sbom
           path: artifacts.zip
-
-      # - name: Check out the code
-      #   uses: actions/checkout@v4
-
-      - name: Upload combined SARIF file to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
