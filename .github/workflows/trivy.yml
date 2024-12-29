@@ -114,37 +114,49 @@ jobs:
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
 
+          echo "Verifying files in artifacts directory..."
+          ls -al artifacts/
+
+          if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+            echo "Error: SARIF file was not created."
+            exit 1
+          fi
+
+          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+            echo "Error: JSON SBOM file was not created."
+            exit 1
+          fi
+
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: trivy-scan-results
           path: artifacts/
 
-  final:
-    name: Collect Results, Create ZIP, and Upload
-    needs: scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Scan Results Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: trivy-scan-results
+  # final:
+  #   name: Collect Results, Create ZIP, and Upload
+  #   needs: scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Scan Results Artifacts
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: trivy-scan-results
 
-      - name: Create ZIP File for SARIF and SBOM
-        run: |
-          echo "Creating ZIP file for SARIF and SBOM files..."
-          DOWNLOAD_DIR="/home/runner/work/Nightingale/Nightingale"  # Adjust to the actual download directory if needed
-          ls -al $DOWNLOAD_DIR  # Debugging step to verify downloaded files
-          zip -r artifacts.zip $DOWNLOAD_DIR  # Compress all downloaded files into one ZIP file
+  #     - name: Create ZIP File for SARIF and SBOM
+  #       run: |
+  #         echo "Creating ZIP file for SARIF and SBOM files..."
+  #         DOWNLOAD_DIR="/home/runner/work/Nightingale/Nightingale"  # Adjust to the actual download directory if needed
+  #         ls -al $DOWNLOAD_DIR  # Debugging step to verify downloaded files
+  #         zip -r artifacts.zip $DOWNLOAD_DIR  # Compress all downloaded files into one ZIP file
 
+  #     - name: Upload SARIF to GitHub Security Tab
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: 'artifacts/trivy-results-*.sarif'
 
-      - name: Upload SARIF to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'artifacts/trivy-results-*.sarif'
-
-      - name: Upload Single ZIP Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-results-and-sbom
-          path: artifacts.zip
+  #     - name: Upload Single ZIP Artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: trivy-results-and-sbom
+  #         path: artifacts.zip
