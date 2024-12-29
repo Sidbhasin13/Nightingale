@@ -183,19 +183,17 @@ jobs:
             sanitized_sarif=$(mktemp)
             sed -E 's/[[:space:]]+/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
 
-            # Stream process each file with jq and append results
-            jq '.runs' "$sanitized_sarif" >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            runs_array=$(jq '.runs' "$sanitized_sarif")
+
+            # Append the extracted runs array to the combined SARIF file
+            jq --argjson new_runs "$runs_array" '.runs += $new_runs' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif.sarif.tmp && mv /home/runner/work/${{ github.repository }}/combined-sarif.sarif.tmp /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
             # Clean up temporary sanitized SARIF file
             rm -f "$sanitized_sarif"
           done
-          jq '{
-            "version": "2.1.0",
-            "runs": (.[0].runs + (.[1:] | map(.runs) | add))
-          }' /home/runner/work/${{ github.repository }}/combined-sarif.sarif > /home/runner/work/${{ github.repository }}/combined-sarif-fixed.sarif
-
-          # Overwrite the combined SARIF file with the fixed version
-          mv /home/runner/work/${{ github.repository }}/combined-sarif-fixed.sarif /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+          
+          # Ensure the final file is valid JSON
+          jq . /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
       - name: Upload combined SARIF file to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
