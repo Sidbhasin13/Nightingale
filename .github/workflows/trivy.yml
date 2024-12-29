@@ -155,6 +155,9 @@ jobs:
           echo "Creating ZIP file for SARIF and SBOM files..."
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
+      
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Upload SARIF files to GitHub Security Tab
         run: |
