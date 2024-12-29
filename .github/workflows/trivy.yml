@@ -90,6 +90,9 @@ jobs:
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
     steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
       - name: Install Trivy
         run: |
           echo "Installing Trivy..."
