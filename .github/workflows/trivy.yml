@@ -178,13 +178,13 @@ jobs:
             
             # Sanitize the SARIF file (clean non-ASCII or unwanted characters)
             sanitized_sarif=$(mktemp)
-            sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g' $sarif_file > $sanitized_sarif
+            sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
 
             # Stream process each file with jq and append results
-            jq --stream 'try . | catch' $sanitized_sarif | jq -s '[.[][]]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            jq 'try . catch {}' "$sanitized_sarif" | jq -s '[.[][]]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
             # Clean up temporary sanitized SARIF file
-            rm -f $sanitized_sarif
+            rm -f "$sanitized_sarif"
           done
 
       - name: Upload combined SARIF file to GitHub Security Tab
