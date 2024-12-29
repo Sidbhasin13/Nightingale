@@ -180,14 +180,23 @@ jobs:
             cleaned_sarif=$(mktemp)
             sed 's/=>/:/g' $sarif_file > $cleaned_sarif
 
-            # Step 2: Validate the cleaned SARIF file
+            # Step 2: Check if the cleaned SARIF file is valid JSON before processing
+            echo "Validating the cleaned SARIF file..."
             if jq empty $cleaned_sarif > /dev/null 2>&1; then
-              echo "$sarif_file cleaned successfully"
+              echo "$sarif_file cleaned successfully and is valid JSON"
+              
+              # Step 3: Debug output to see part of the cleaned file
+              echo "Preview of cleaned SARIF file:"
+              head -n 20 $cleaned_sarif  # Preview first 20 lines of the cleaned SARIF file
 
-              # Step 3: Append the content of each valid SARIF file into the combined SARIF file
+              # Step 4: Append the content of each valid SARIF file into the combined SARIF file
               jq '.runs += (input | .runs)' $cleaned_sarif >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
             else
               echo "$sarif_file is not a valid JSON after cleaning, skipping..."
+              
+              # Debug output: Display error message for the problematic file
+              echo "Error with file $sarif_file:"
+              jq . $cleaned_sarif || echo "Failed to parse $cleaned_sarif as JSON"
             fi
 
             # Clean up temporary cleaned SARIF file
