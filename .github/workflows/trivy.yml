@@ -160,14 +160,19 @@ jobs:
         run: |
           echo "Uploading SARIF files to GitHub Security Tab..."
           find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
+            COMMIT_SHA=$(git rev-parse HEAD)
+            REF=$(git symbolic-ref --short HEAD || git rev-parse --short HEAD)
+            SARIF_CONTENT=$(cat $sarif_file | jq -c .)
             curl -X POST \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               -H "Content-Type: application/json" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d @"$sarif_file" \
-              https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs \
-              -w "\nHTTP Response: %{http_code}\n" \
-              || exit 1
+              -d "{
+                \"commit_sha\": \"$COMMIT_SHA\",
+                \"ref\": \"refs/heads/$REF\",
+                \"sarif\": $SARIF_CONTENT
+              }" \
+              https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs || exit 1
           done
 
       - name: Upload Single ZIP Artifact
