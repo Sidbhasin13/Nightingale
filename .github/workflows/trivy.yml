@@ -162,24 +162,13 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Set up CodeQL CLI
-        uses: github/codeql-action/init@v3
-
-      - name: Upload SARIF files to GitHub Security Tab
-        run: |
-          echo "Uploading SARIF files to GitHub Security Tab using CodeQL CLI..."
-
-          find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-            echo "Uploading $sarif_file..."
-
-            # Upload the SARIF file to GitHub using CodeQL CLI
-            codeql upload sarif --sarif-file=$sarif_file --token=${{ secrets.TOKEN }} --repo=${{ github.repository }}
-
-            if [ $? -ne 0 ]; then
-              echo "Failed to upload $sarif_file"
-              exit 1
-            fi
-          done
+      - name: Upload multiple SARIF files to GitHub Security Tab using CodeQL
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          # Loop through all SARIF files and upload each one
+          sarif_file: |
+            /home/runner/work/${{ github.repository }}/artifacts/*.sarif
+          token: ${{ secrets.TOKEN }}
 
       # - name: Upload SARIF files to GitHub Security Tab
       #   run: |
