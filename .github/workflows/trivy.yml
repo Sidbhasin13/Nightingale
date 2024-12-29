@@ -163,23 +163,53 @@ jobs:
         run: |
           echo "Uploading SARIF files to GitHub Security Tab..."
           find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-            COMMIT_SHA=$(git rev-parse HEAD)
-            REF=$(git symbolic-ref --short HEAD || git rev-parse --short HEAD)
+            COMMIT_SHA=${{ github.sha }}
+            REF=${{ github.ref }}
             TEMP_JSON=$(mktemp)
+
+            # Step 1: Check if SARIF file is valid JSON
+            if jq . $sarif_file > /dev/null 2>&1; then
+              echo "SARIF file is valid JSON"
+            else
+              echo "SARIF file is not valid JSON, attempting to fix it..."
+
+              # Step 2: Try to clean up the JSON manually (e.g., fix Ruby-style hash to JSON format)
+              # This step can include custom corrections like replacing "=>" with ":" and other specific fixes.
+              sed 's/=>/:/g' $sarif_file > $sarif_file.fixed
+
+              # Step 3: Attempt to format the fixed JSON file
+              if jq . $sarif_file.fixed > /dev/null 2>&1; then
+                echo "SARIF file fixed successfully"
+                mv $sarif_file.fixed $sarif_file
+              else
+                echo "Unable to fix SARIF file. Aborting upload."
+                exit 1
+              fi
+            fi
+
+            # Step 4: Generate the payload with commit and ref info
             jq -n --arg commit_sha "$COMMIT_SHA" --arg ref "refs/heads/$REF" --slurpfile sarif_file "$sarif_file" '{
               commit_sha: $commit_sha,
               ref: $ref,
               sarif: $sarif_file[0]
             }' > $TEMP_JSON
+
+            # Step 5: Debug: Print the JSON content before sending it to GitHub API
+            echo "Generated JSON Payload:"
+            cat $TEMP_JSON
+
+            # Step 6: Upload the SARIF file to GitHub Security Tab
             curl -X POST \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               -H "Content-Type: application/json" \
               -H "Accept: application/vnd.github.v3+json" \
               -d @$TEMP_JSON \
               https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs || exit 1
+
+            # Clean up the temporary JSON file
             rm -f $TEMP_JSON
           done
-          
+
       - name: Upload Single ZIP Artifact
         uses: actions/upload-artifact@v3
         with:
