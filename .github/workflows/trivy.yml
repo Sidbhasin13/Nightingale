@@ -186,10 +186,14 @@ jobs:
               echo "$sarif_file cleaned successfully and is valid JSON"
               
               # Step 3: Debug output to see part of the cleaned file
-              echo "Preview of cleaned SARIF file:"
+              echo "Preview of cleaned SARIF file (first 20 lines):"
               head -n 20 $cleaned_sarif  # Preview first 20 lines of the cleaned SARIF file
 
-              # Step 4: Append the content of each valid SARIF file into the combined SARIF file
+              # Step 4: Log the entire cleaned SARIF file to debug larger files
+              echo "Full cleaned SARIF file:"
+              cat $cleaned_sarif | head -n 100  # Log first 100 lines of the cleaned SARIF file for further inspection
+
+              # Step 5: Append the content of each valid SARIF file into the combined SARIF file
               jq '.runs += (input | .runs)' $cleaned_sarif >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
             else
               echo "$sarif_file is not a valid JSON after cleaning, skipping..."
