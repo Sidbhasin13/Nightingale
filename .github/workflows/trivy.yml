@@ -162,24 +162,38 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Combine all SARIF files into one
+      - name: Clean and Combine all SARIF files into one
         run: |
-          echo "Combining all SARIF files into one..."
-          
+          echo "Cleaning and combining SARIF files..."
+
           # Initialize the combined SARIF file with an empty SARIF object
           echo '{
             "version": "2.1.0",
             "runs": []
           }' > /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
-          # Loop through each SARIF file and append it to the combined SARIF file
+          # Loop through each SARIF file
           for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif; do
             echo "Processing $sarif_file"
             
-            # Append the content of each SARIF file into the combined SARIF file
-            jq '.runs += (input | .runs)' $sarif_file >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            # Step 1: Clean the SARIF file (e.g., replace '=>' with ':')
+            cleaned_sarif=$(mktemp)
+            sed 's/=>/:/g' $sarif_file > $cleaned_sarif
+
+            # Step 2: Validate the cleaned SARIF file
+            if jq empty $cleaned_sarif > /dev/null 2>&1; then
+              echo "$sarif_file cleaned successfully"
+
+              # Step 3: Append the content of each valid SARIF file into the combined SARIF file
+              jq '.runs += (input | .runs)' $cleaned_sarif >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            else
+              echo "$sarif_file is not a valid JSON after cleaning, skipping..."
+            fi
+
+            # Clean up temporary cleaned SARIF file
+            rm -f $cleaned_sarif
           done
-          
+
       - name: Upload combined SARIF file to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
