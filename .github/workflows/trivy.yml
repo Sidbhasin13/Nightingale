@@ -162,13 +162,8 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Checkout Code
-        uses: actions/checkout@v3
-      
       - name: Set up CodeQL CLI
-        uses: github/codeql-action/setup-codeql@v2
-        with:
-          version: 'latest'
+        uses: github/codeql-action/init@v2
 
       - name: Upload SARIF files to GitHub Security Tab
         run: |
