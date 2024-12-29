@@ -160,7 +160,6 @@ jobs:
         run: |
           echo "Creating Base64 encoded SARIF files..."
           find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-            # Compress the SARIF file using gzip, then encode it in base64
             base64 -w 0 <(gzip -c $sarif_file) > ${sarif_file}.base64
           done
 
@@ -171,7 +170,7 @@ jobs:
             -H "Authorization: token ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             -d @{} \
-            https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs \;
+            https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs
 
       - name: Upload Single ZIP Artifact
         uses: actions/upload-artifact@v3
