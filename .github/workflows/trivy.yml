@@ -162,6 +162,9 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
+      - name: Check out the code
+        uses: actions/checkout@v4
+
       - name: Clean and Combine all SARIF files into one (with error handling)
         run: |
           echo "Cleaning and combining SARIF files..."
@@ -191,7 +194,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-          token: ${{ secrets.TOKEN }}
+          # token: ${{ secrets.TOKEN }}
 
 
       # - name: Upload SARIF files to GitHub Security Tab
