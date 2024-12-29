@@ -181,7 +181,7 @@ jobs:
             sed -E 's/[[:space:]]+/ /g; s/[^[:print:]\t\n\r]//g' "$sarif_file" > "$sanitized_sarif"
 
             # Stream process each file with jq and append results
-            jq 'try .catch {}' "$sanitized_sarif" | jq -s '.runs += .[][]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            jq 'try . catch {}' "$sanitized_sarif" | jq -s '.runs += .[][]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
             # Clean up temporary sanitized SARIF file
             rm -f "$sanitized_sarif"
@@ -191,7 +191,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-          # token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN }}
 
 
       # - name: Upload SARIF files to GitHub Security Tab
