@@ -155,18 +155,26 @@ jobs:
           echo "Creating ZIP file for SARIF and SBOM files..."
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
+
+      - name: Compress SARIF Files
+        run: |
+          echo "Compressing SARIF files to reduce size..."
+          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
+            gzip "$sarif_file"
+          done
           
       - name: Upload SARIF files to GitHub Security Tab
         run: |
           echo "Uploading SARIF files..."
-          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
+          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif.gz; do
             if [[ -f "$sarif_file" ]]; then
-              echo "Uploading $sarif_file..."
-              # Upload the SARIF file using GitHub CodeQL action
-              curl -X POST -H "Authorization: token ${{ secrets.TOKEN }}" \
-              -H "Content-Type: application/json" \
-              --data '{"sarif": "'"$(cat $sarif_file)"'"}' \
-              "https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs"
+              echo "Uploading $sarif_file to GitHub Security Tab..."
+              # Use GitHub API to upload the SARIF file
+              curl -X POST \
+                -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                -F "file=@$sarif_file" \
+                "https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs"
             else
               echo "No SARIF files found."
             fi
