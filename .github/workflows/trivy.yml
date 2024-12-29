@@ -151,9 +151,11 @@ jobs:
               mv /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
             fi
           done
-
-          # Show the combined SARIF file to verify
-          cat /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+      
+      - name: Upload combined SARIF file to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
 
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
@@ -184,54 +186,10 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
 
+      # - name: Check out the code
+      #   uses: actions/checkout@v4
+
       - name: Upload combined SARIF file to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
-
-
-      # - name: Upload SARIF files to GitHub Security Tab
-      #   run: |
-      #     echo "Uploading SARIF files to GitHub Security Tab..."
-      #     find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-      #       COMMIT_SHA=${{ github.sha }}
-      #       REF=${{ github.ref }}
-      #       TEMP_JSON=$(mktemp)
-
-      #       # Step 1: Always attempt to clean up the JSON by replacing => with :
-      #       echo "Cleaning up SARIF file..."
-      #       sed 's/=>/:/g' $sarif_file > $sarif_file.fixed
-
-      #       # Step 2: Check if the file is valid JSON (even after modification)
-      #       if jq . $sarif_file.fixed > /dev/null 2>&1; then
-      #         echo "SARIF file fixed successfully or was already valid"
-      #         mv $sarif_file.fixed $sarif_file
-      #       else
-      #         echo "SARIF file is still invalid after cleanup. Checking the original file..."
-      #         # Attempt to check if the original file is valid JSON
-      #         if jq . $sarif_file > /dev/null 2>&1; then
-      #           echo "Original SARIF file is valid JSON, skipping modifications"
-      #         else
-      #           echo "Original SARIF file is also invalid. Aborting upload."
-      #           exit 1
-      #         fi
-      #       fi
-
-      #       # Step 3: Generate the payload with commit and ref info
-      #       jq -n --arg commit_sha "$COMMIT_SHA" --arg ref "refs/heads/$REF" --slurpfile sarif_file "$sarif_file" '{
-      #         commit_sha: $commit_sha,
-      #         ref: $ref,
-      #         sarif: $sarif_file[0]
-      #       }' > $TEMP_JSON
-
-      #       # Step 4: Upload the SARIF file to GitHub Security Tab
-      #       curl -X POST \
-      #         -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-      #         -H "Content-Type: application/json" \
-      #         -H "Accept: application/vnd.github.v3+json" \
-      #         -d @$TEMP_JSON \
-      #         https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs || exit 1
-
-      #       # Clean up the temporary JSON file
-      #       rm -f $TEMP_JSON
-      #     done
