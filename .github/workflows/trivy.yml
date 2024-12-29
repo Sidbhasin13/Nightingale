@@ -133,7 +133,10 @@ jobs:
       - name: Create ZIP File for SARIF and SBOM
         run: |
           echo "Creating ZIP file for SARIF and SBOM files..."
-          zip -r artifacts.zip artifacts/  # Compress all results into one ZIP file
+          DOWNLOAD_DIR="/home/runner/work/Nightingale/Nightingale"  # Adjust to the actual download directory if needed
+          ls -al $DOWNLOAD_DIR  # Debugging step to verify downloaded files
+          zip -r artifacts.zip $DOWNLOAD_DIR  # Compress all downloaded files into one ZIP file
+
 
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
