@@ -156,27 +156,42 @@ jobs:
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
 
-      - name: Compress SARIF Files
+      - name: Compress and Base64 encode SARIF files for upload
         run: |
-          echo "Compressing SARIF files to reduce size..."
           for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif; do
-            gzip "$sarif_file"
+            if [[ -f "$sarif_file" ]]; then
+              echo "Compressing and encoding $sarif_file..."
+              
+              # Compress the SARIF file using gzip
+              gzip -c "$sarif_file" > "$sarif_file.gz"
+              
+              # Base64 encode the gzipped SARIF file
+              base64 -w 0 "$sarif_file.gz" > "$sarif_file.gz.base64"
+
+              echo "Base64 encoded file created at: $sarif_file.gz.base64"
+            fi
           done
-          
-      - name: Upload SARIF files to GitHub Security Tab
+
+      - name: Upload SARIF Files to GitHub Security Tab
         run: |
-          echo "Uploading SARIF files..."
-          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif.gz; do
+          for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-*.sarif.gz.base64; do
             if [[ -f "$sarif_file" ]]; then
               echo "Uploading $sarif_file to GitHub Security Tab..."
-              # Use GitHub API to upload the SARIF file
+              
+              # Extract the Base64 string from the file
+              BASE64_DATA=$(cat "$sarif_file")
+              
+              # Prepare the payload for the API request
+              PAYLOAD=$(jq -n --arg base64_data "$BASE64_DATA" \
+                '{sarif: $base64_data}')
+
+              # Upload the SARIF file to GitHub Security Tab
               curl -X POST \
                 -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
                 -H "Accept: application/vnd.github.v3+json" \
-                -F "file=@$sarif_file" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD" \
                 "https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs"
-            else
-              echo "No SARIF files found."
             fi
           done
 
