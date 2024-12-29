@@ -139,11 +139,11 @@ jobs:
           mkdir -p /home/runner/work/${{ github.repository }}/combined_sarif
 
           # Start by copying the first SARIF file into the combined directory
-          cp artifacts/trivy-results-${IMAGE_NAME}.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
+          cp artifacts/trivy-results-*.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
 
           # Iterate over all SARIF files in the artifacts directory and merge them into one
           for sarif_file in artifacts/trivy-results-*.sarif; do
-            if [[ "$sarif_file" != "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+            if [[ "$sarif_file" != "artifacts/trivy-results-*.sarif" ]]; then
               # Merge current SARIF file into the combined SARIF file
               jq -s '[.[][]] | {version: "2.1.0", runs: .}' \
                 /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif \
