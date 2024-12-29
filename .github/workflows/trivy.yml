@@ -144,27 +144,22 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Define a global variable in final job
-        id: define_global
-        run: |
-          echo "artifact_path=/home/runner/work/Nightingale/Nightingale/artifacts" >> $GITHUB_ENV 
-
       - name: Download Scan Results Artifacts
         uses: actions/download-artifact@v3
         with:
           name: trivy-scan-results
-          path: $artifact_path/
+          path: /home/runner/work/${{ github.repository }}/artifacts/
 
       - name: Create ZIP File for SARIF and SBOM
         run: |
           echo "Creating ZIP file for SARIF and SBOM files..."
-          DOWNLOAD_DIR="$artifact_path/"
+          DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
-
+          
       - name: Upload SARIF to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: '$artifact_path/trivy-results-*.sarif'
+          sarif_file: trivy-results-*.sarif
 
       - name: Upload Single ZIP Artifact
         uses: actions/upload-artifact@v3
