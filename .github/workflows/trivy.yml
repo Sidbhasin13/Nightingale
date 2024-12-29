@@ -162,12 +162,15 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Upload multiple SARIF files to GitHub Security Tab using CodeQL
+      - name: List SARIF files in artifacts directory
+        run: |
+          echo "Listing SARIF files matching the prefix in the artifacts directory..."
+          ls /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif
+
+      - name: Upload SARIF files to GitHub Security Tab using CodeQL
         uses: github/codeql-action/upload-sarif@v2
         with:
-          # Loop through all SARIF files and upload each one
-          sarif_file: |
-            /home/runner/work/${{ github.repository }}/artifacts/*.sarif
+          sarif_file: /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif
           token: ${{ secrets.TOKEN }}
 
       # - name: Upload SARIF files to GitHub Security Tab
