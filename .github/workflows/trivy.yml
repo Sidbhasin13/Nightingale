@@ -195,8 +195,8 @@ jobs:
             }' > $TEMP_JSON
 
             # Step 5: Debug: Print the JSON content before sending it to GitHub API
-            echo "Generated JSON Payload:"
-            cat $TEMP_JSON
+            # echo "Generated JSON Payload:"
+            # cat $TEMP_JSON
 
             # Step 6: Upload the SARIF file to GitHub Security Tab
             curl -X POST \
