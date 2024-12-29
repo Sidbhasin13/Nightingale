@@ -162,27 +162,26 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Clean and Combine all SARIF files into one (using streaming)
+      - name: Clean and Combine all SARIF files into one (with error handling)
         run: |
           echo "Cleaning and combining SARIF files..."
 
-          # Initialize the combined SARIF file with an empty SARIF object
+          # Initialize combined SARIF file
           echo '{
             "version": "2.1.0",
             "runs": []
           }' > /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
-          # Loop through each SARIF file
+          # Process each SARIF file
           for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif; do
             echo "Processing $sarif_file"
             
-            # Step 1: Sanitize the SARIF file (remove problematic characters)
+            # Sanitize the SARIF file (clean non-ASCII or unwanted characters)
             sanitized_sarif=$(mktemp)
             sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g' $sarif_file > $sanitized_sarif
 
-            # Step 2: Stream process each SARIF file to handle large files
-            echo "Streaming and appending to combined SARIF file..."
-            jq --stream 'if .[0] == "runs" then .[1] else empty end' $sanitized_sarif | jq -s '. | { "version": "2.1.0", "runs": . }' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
+            # Stream process each file with jq and append results
+            jq --stream 'try . | catch' $sanitized_sarif | jq -s '[.[][]]' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
             # Clean up temporary sanitized SARIF file
             rm -f $sanitized_sarif
