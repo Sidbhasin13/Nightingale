@@ -163,7 +163,7 @@ jobs:
           path: artifacts.zip
       
       - name: Set up CodeQL CLI
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
 
       - name: Upload SARIF files to GitHub Security Tab
         run: |
