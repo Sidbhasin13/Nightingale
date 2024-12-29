@@ -162,7 +162,7 @@ jobs:
           name: trivy-results-and-sbom
           path: artifacts.zip
       
-      - name: Clean and Combine all SARIF files into one
+      - name: Clean and Combine all SARIF files into one (using streaming)
         run: |
           echo "Cleaning and combining SARIF files..."
 
@@ -176,35 +176,16 @@ jobs:
           for sarif_file in /home/runner/work/${{ github.repository }}/artifacts/trivy-results-ghcr_io_rajanagori_nightingale*.sarif; do
             echo "Processing $sarif_file"
             
-            # Step 1: Clean the SARIF file (e.g., replace '=>' with ':')
-            cleaned_sarif=$(mktemp)
-            sed 's/=>/:/g' $sarif_file > $cleaned_sarif
+            # Step 1: Sanitize the SARIF file (remove problematic characters)
+            sanitized_sarif=$(mktemp)
+            sed 's/\\[[:space:]]*/ /g; s/[^[:print:]\t\n\r]//g' $sarif_file > $sanitized_sarif
 
-            # Step 2: Check if the cleaned SARIF file is valid JSON before processing
-            echo "Validating the cleaned SARIF file..."
-            if jq empty $cleaned_sarif > /dev/null 2>&1; then
-              echo "$sarif_file cleaned successfully and is valid JSON"
-              
-              # Step 3: Debug output to see part of the cleaned file
-              echo "Preview of cleaned SARIF file (first 20 lines):"
-              head -n 20 $cleaned_sarif  # Preview first 20 lines of the cleaned SARIF file
+            # Step 2: Stream process each SARIF file to handle large files
+            echo "Streaming and appending to combined SARIF file..."
+            jq --stream 'if .[0] == "runs" then .[1] else empty end' $sanitized_sarif | jq -s '. | { "version": "2.1.0", "runs": . }' >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
 
-              # Step 4: Log the entire cleaned SARIF file to debug larger files
-              echo "Full cleaned SARIF file:"
-              cat $cleaned_sarif | head -n 100  # Log first 100 lines of the cleaned SARIF file for further inspection
-
-              # Step 5: Append the content of each valid SARIF file into the combined SARIF file
-              jq '.runs += (input | .runs)' $cleaned_sarif >> /home/runner/work/${{ github.repository }}/combined-sarif.sarif
-            else
-              echo "$sarif_file is not a valid JSON after cleaning, skipping..."
-              
-              # Debug output: Display error message for the problematic file
-              echo "Error with file $sarif_file:"
-              jq . $cleaned_sarif || echo "Failed to parse $cleaned_sarif as JSON"
-            fi
-
-            # Clean up temporary cleaned SARIF file
-            rm -f $cleaned_sarif
+            # Clean up temporary sanitized SARIF file
+            rm -f $sanitized_sarif
           done
 
       - name: Upload combined SARIF file to GitHub Security Tab
