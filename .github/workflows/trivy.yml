@@ -156,22 +156,18 @@ jobs:
           DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
           zip -r artifacts.zip $DOWNLOAD_DIR  
 
-      - name: Create Base64 Encoded SARIF Files
-        run: |
-          echo "Creating Base64 encoded SARIF files..."
-          find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-            gzip -c $sarif_file | base64 -w 0 > ${sarif_file}.gz.base64
-          done
-
       - name: Upload SARIF files to GitHub Security Tab
         run: |
           echo "Uploading SARIF files to GitHub Security Tab..."
-          find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif.gz.base64" | while read sarif_file; do
+          find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
             curl -X POST \
-              -H "Authorization: token ${{ secrets.TOKEN }}" \
+              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+              -H "Content-Type: application/json" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d @$sarif_file \
-              https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs -v || exit 1
+              -d @"$sarif_file" \
+              https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs \
+              -w "\nHTTP Response: %{http_code}\n" \
+              || exit 1
           done
 
       - name: Upload Single ZIP Artifact
