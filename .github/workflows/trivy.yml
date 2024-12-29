@@ -163,20 +163,22 @@ jobs:
         run: |
           echo "Uploading SARIF files to GitHub Security Tab..."
           find /home/runner/work/${{ github.repository }}/artifacts/ -name "*.sarif" | while read sarif_file; do
-            COMMIT_SHA=$(git rev-parse HEAD)
-            REF=$(git symbolic-ref --short HEAD || git rev-parse --short HEAD)
-            SARIF_CONTENT=$(cat $sarif_file | jq -c .)
-            curl -X POST \
-              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d "{
-                \"commit_sha\": \"$COMMIT_SHA\",
-                \"ref\": \"refs/heads/$REF\",
-                \"sarif\": $SARIF_CONTENT
-              }" \
-              https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs || exit 1
-          done
+          COMMIT_SHA=$(git rev-parse HEAD)
+          REF=$(git symbolic-ref --short HEAD || git rev-parse --short HEAD)
+          TEMP_JSON=$(mktemp)
+          jq -n --arg commit_sha "$COMMIT_SHA" --arg ref "refs/heads/$REF" --arg sarif "$(cat $sarif_file)" '{
+            commit_sha: $commit_sha,
+            ref: $ref,
+            sarif: $sarif
+          }' > $TEMP_JSON
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -d @$TEMP_JSON \
+            https://api.github.com/repos/${{ github.repository }}/code-scanning/sarifs || exit 1
+          rm -f $TEMP_JSON
+        done
 
       - name: Upload Single ZIP Artifact
         uses: actions/upload-artifact@v3
