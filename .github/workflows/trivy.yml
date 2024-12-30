@@ -79,7 +79,7 @@ jobs:
             exit 0
           fi
 
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+          echo "STABLE_IMAGES=${STABLE_IMAGES[@]}" >> $GITHUB_ENV
 
   scan:
     name: Run Trivy Scan and Generate SBOM
@@ -95,6 +95,19 @@ jobs:
           wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
           sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
           rm trivy_0.57.0_Linux-64bit.deb
+          trivy image --download-db-only
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/trivy/db
+          key: ${{ runner.os }}-trivy-db-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-trivy-db-
+
+      - name: Refresh Trivy DB to get latest vulnerabilities
+        run: |
+          echo "Refreshing Trivy vulnerability database..."
           trivy image --download-db-only
 
       - name: Checkout repository
@@ -149,27 +162,3 @@ jobs:
         with:
           name: sbom-files
           path: artifacts/*.cyclonedx.json
-  
-  final:
-    name: Aggregate SBOM Files
-    needs: scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download SBOM Files Artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: sbom-files
-          path: /home/runner/work/${{ github.repository }}/artifacts/
-
-      - name: Create ZIP File for SBOM Files
-        run: |
-          echo "Creating ZIP file for SBOM files..."
-          DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
-          zip -r sboms.zip $DOWNLOAD_DIR/*.cyclonedx.json
-          ls -al
-
-      - name: Upload Consolidated SBOM Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: consolidated-sboms
-          path: sboms.zip
