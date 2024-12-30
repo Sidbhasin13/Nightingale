@@ -152,10 +152,14 @@ jobs:
       #       fi
       #     done
       
+      - name: Set Image Name for Upload
+        id: set_image_name
+        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
+
       - name: Upload SARIF file to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: artifacts/trivy-results-${{ matrix.image }}.sarif
+          sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v3
