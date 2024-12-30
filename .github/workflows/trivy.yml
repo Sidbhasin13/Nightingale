@@ -58,14 +58,16 @@ jobs:
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            STABLE_AND_ARM_TAGS=$(echo "$TAGS" | grep -iwE 'stable.*arm64|arm64.*stable')
-            echo "STABLE_AND_ARM_TAGS: $STABLE_AND_ARM_TAGS"
-            if [[ -n "$STABLE_AND_ARM_TAGS" ]]; then
-              for TAG in $STABLE_AND_ARM_TAGS; do
-                SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
-              done
+            STABLE_PRESENT=$(echo "$TAGS" | grep -w 'stable')
+            ARM64_PRESENT=$(echo "$TAGS" | grep -w 'arm64')
+
+            if [[ -n "$STABLE_PRESENT" && -n "$ARM64_PRESENT" ]]; then
+              echo "Both stable and arm64 tags found for package: $PACKAGE"
+
+              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${STABLE_PRESENT}")
+              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${ARM64_PRESENT}")
             else
-              echo "No tags with both stable and arm found for package: $PACKAGE, skipping..."
+              echo "No tags with both 'stable' and 'arm64' found for package: $PACKAGE, skipping..."
             fi
           done
 
