@@ -98,6 +98,9 @@ jobs:
           rm trivy_0.57.0_Linux-64bit.deb
           trivy image --download-db-only
 
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Run Trivy Vulnerability Scanner
         run: |
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')  # Sanitize the image name
@@ -132,25 +135,6 @@ jobs:
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
-
-      # - name: Combine SARIF Files
-      #   run: |
-      #     echo "Combining all SARIF files into a single SARIF..."
-      #     mkdir -p /home/runner/work/${{ github.repository }}/combined_sarif
-
-      #     # Start by copying the first SARIF file into the combined directory
-      #     cp artifacts/trivy-results-*.sarif /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
-
-      #     # Iterate over all SARIF files in the artifacts directory and merge them into one
-      #     for sarif_file in artifacts/trivy-results-*.sarif; do
-      #       if [[ "$sarif_file" != "artifacts/trivy-results-*.sarif" ]]; then
-      #         # Merge current SARIF file into the combined SARIF file
-      #         jq -s '[.[][]] | {version: "2.1.0", runs: .}' \
-      #           /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif \
-      #           "$sarif_file" > /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp
-      #         mv /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif.tmp /home/runner/work/${{ github.repository }}/combined_sarif/combined.sarif
-      #       fi
-      #     done
       
       - name: Set Image Name for Upload
         id: set_image_name
