@@ -164,7 +164,6 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
-        delay: 10
       
       - name: Send SBOM Files via Gmail
         uses: dawidd6/action-send-mail@v3
