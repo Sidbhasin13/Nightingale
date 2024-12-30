@@ -119,6 +119,12 @@ jobs:
         run: |
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           echo "Scanning ${{ matrix.image }}..."
+          if [[ "${{ matrix.image }}" == *":arm64" ]]; then
+            PLATFORM_OPTION="--platform=linux/arm64"
+            echo "Detected arm64 tag. Adding platform option: $PLATFORM_OPTION"
+          else
+            PLATFORM_OPTION=""
+          fi
           mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
@@ -127,7 +133,7 @@ jobs:
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
             --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
-            ${{ matrix.image }}
+            $PLATFORM_OPTION ${{ matrix.image }}
 
           trivy image \
             --format cyclonedx \
@@ -135,7 +141,7 @@ jobs:
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
-            ${{ matrix.image }}
+            $PLATFORM_OPTION ${{ matrix.image }}
 
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
