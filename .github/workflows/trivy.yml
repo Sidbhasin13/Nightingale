@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(needs.setup.outputs.images) }}
+        image: ${{ fromJson(env.STABLE_IMAGES) }}
     steps:
       - name: Install Trivy
         run: |
