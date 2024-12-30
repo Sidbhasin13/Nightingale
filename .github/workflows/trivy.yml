@@ -59,6 +59,7 @@ jobs:
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
+            echo "TAGS: $TAGS"
             STABLE_AND_ARM_TAGS=$(echo "$TAGS" | grep -w 'stable' | grep -w 'arm64')
             echo "STABLE_AND_ARM_TAGS: $STABLE_AND_ARM_TAGS"
             if [[ -n "$STABLE_AND_ARM_TAGS" ]]; then
