@@ -81,7 +81,6 @@ jobs:
 
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
-
   scan:
     name: Run Trivy Scan and Generate SBOM
     needs: setup
@@ -145,11 +144,11 @@ jobs:
         with:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
-      - name: Upload Scan Results to Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: trivy-scan-results
-          path: artifacts/
+      # - name: Upload Scan Results to Artifacts
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: trivy-scan-results
+      #     path: artifacts/
   
   final:
     name: Collect Results, Create ZIP, and Upload
