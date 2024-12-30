@@ -38,8 +38,6 @@ jobs:
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/rajanagori/packages?package_type=container")
-          
-          # echo "RESPONSE: $RESPONSE"
 
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
           echo "IMAGES: $IMAGES"
@@ -54,8 +52,7 @@ jobs:
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
-            echo "VERSIONS_RESPONSE: $VERSIONS_RESPONSE"
-
+            
             if [[ "$VERSIONS_RESPONSE" == *"Not Found"* || -z "$VERSIONS_RESPONSE" ]]; then
               echo "No versions or 404 error for package: $PACKAGE, skipping..."
               continue
