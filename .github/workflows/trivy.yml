@@ -46,7 +46,7 @@ jobs:
             exit 1
           fi
 
-          STABLE_IMAGES=()
+          SELECTED_IMAGES=()
           for PACKAGE in $IMAGES; do
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
@@ -68,12 +68,12 @@ jobs:
             fi
           done
 
-          if [ ${#STABLE_IMAGES[@]} -eq 0 ]; then
+          if [ ${#SELECTED_IMAGES[@]} -eq 0 ]; then
             echo "No stable images found, skipping the job."
             exit 0
           fi
 
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
+          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
 
   scan:
     name: Run Trivy Scan and Generate SBOM
