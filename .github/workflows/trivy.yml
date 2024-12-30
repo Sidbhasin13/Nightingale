@@ -95,20 +95,27 @@ jobs:
           wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
           sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
           rm trivy_0.57.0_Linux-64bit.deb
-          trivy image --download-db-only
 
       - name: Cache Trivy DB
         uses: actions/cache@v3
         with:
           path: ~/.cache/trivy/db
-          key: ${{ runner.os }}-trivy-db-${{ github.sha }}
+          key: ${{ runner.os }}-trivy-db-${{ matrix.image }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-trivy-db-
+            ${{ runner.os }}-trivy-db-${{ matrix.image }}-
 
-      - name: Refresh Trivy DB to get latest vulnerabilities
+      - name: Refresh Trivy DB if necessary
         run: |
-          echo "Refreshing Trivy vulnerability database..."
-          trivy image --download-db-only
+          echo "Checking if Trivy vulnerability database needs to be refreshed..."
+          
+          # Check if the database is outdated by comparing file timestamps
+          DB_PATH=~/.cache/trivy/db
+          if [[ ! -f "$DB_PATH" ]] || [[ $(find $DB_PATH -mmin +60) ]]; then
+            echo "Refreshing Trivy vulnerability database..."
+            trivy image --download-db-only
+          else
+            echo "Trivy DB is up-to-date, no need to refresh."
+          fi
 
       - name: Checkout repository
         uses: actions/checkout@v3
