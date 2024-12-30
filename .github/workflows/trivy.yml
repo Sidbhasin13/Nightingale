@@ -2,13 +2,15 @@ name: Trivy Scan
 
 on:
   push:
-    branches: ["debug-trivy-scan-issue"]
+    branches: ["main"]
     paths:
       - ".github/workflows/trivy.yml"
   pull_request:
-    branches: ["debug-trivy-scan-issue"]
+    branches: ["main"]
     paths:
       - ".github/workflows/trivy.yml"
+  schedule:
+    - cron: '30 17 * * 0' 
 
 permissions:
   contents: read
@@ -39,7 +41,6 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/rajanagori/packages?package_type=container")
 
-          # Extract images and check for valid entries
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
 
           if [ -z "$IMAGES" ]; then
@@ -49,20 +50,16 @@ jobs:
 
           STABLE_IMAGES=()
           for PACKAGE in $IMAGES; do
-            # Fetch versions for each package and handle errors (e.g., 404 for no stable versions)
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
 
-            # If the version response is empty or contains "Not Found", skip the package
             if [[ "$VERSIONS_RESPONSE" == *"Not Found"* || -z "$VERSIONS_RESPONSE" ]]; then
               echo "No versions or 404 error for package: $PACKAGE, skipping..."
               continue
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-
-            # Check if there are stable tags
             STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')
 
             if [[ -n "$STABLE_TAGS" ]]; then
@@ -107,8 +104,6 @@ jobs:
       - name: Refresh Trivy DB if necessary
         run: |
           echo "Checking if Trivy vulnerability database needs to be refreshed..."
-          
-          # Check if the database is outdated by comparing file timestamps
           DB_PATH=~/.cache/trivy/db
           if [[ ! -f "$DB_PATH" ]] || [[ $(find $DB_PATH -mmin +60) ]]; then
             echo "Refreshing Trivy vulnerability database..."
@@ -122,9 +117,9 @@ jobs:
 
       - name: Run Trivy Vulnerability Scanner
         run: |
-          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')  # Sanitize the image name
+          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           echo "Scanning ${{ matrix.image }}..."
-          mkdir -p artifacts  # Create the artifacts directory to collect results
+          mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
             --format sarif \
