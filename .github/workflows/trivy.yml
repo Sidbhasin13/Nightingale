@@ -174,7 +174,7 @@ jobs:
         run: |
           echo "Collecting SBOM files from all scans..."
           mkdir -p zip-directory
-          cp artifacts/*.cyclonedx.json zip-directory/
+          cp /home/runner/work/${{ github.repository }}/artifacts/*.cyclonedx.json zip-directory/
           
       - name: Zip SBOM files
         run: |
