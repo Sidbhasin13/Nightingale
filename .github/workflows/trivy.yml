@@ -40,7 +40,6 @@ jobs:
             "https://api.github.com/users/rajanagori/packages?package_type=container")
 
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
-          echo "IMAGES: $IMAGES"
 
           if [ -z "$IMAGES" ]; then
             echo "No container images found. Exiting."
@@ -59,8 +58,7 @@ jobs:
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            echo "TAGS: $TAGS"
-            STABLE_AND_ARM_TAGS=$(echo "$TAGS" | grep -w 'stable' | grep -w 'arm64')
+            STABLE_AND_ARM_TAGS=$(echo "$TAGS" | awk '/stable/ && /arm64/')
             echo "STABLE_AND_ARM_TAGS: $STABLE_AND_ARM_TAGS"
             if [[ -n "$STABLE_AND_ARM_TAGS" ]]; then
               for TAG in $STABLE_AND_ARM_TAGS; do
