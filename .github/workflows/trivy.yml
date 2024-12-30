@@ -79,7 +79,7 @@ jobs:
             exit 0
           fi
 
-          echo "STABLE_IMAGES=$(echo ${STABLE_IMAGES[@]} | jq -R . | jq -s .)" >> $GITHUB_ENV
+          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
 
   scan:
     name: Run Trivy Scan and Generate SBOM
@@ -87,7 +87,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(env.STABLE_IMAGES) }}
+        image: ${{ fromJson(needs.setup.outputs.images) }}
     steps:
       - name: Install Trivy
         run: |
