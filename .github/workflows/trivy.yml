@@ -64,8 +64,8 @@ jobs:
             if [[ -n "$STABLE_PRESENT" && -n "$ARM64_PRESENT" ]]; then
               echo "Both stable and arm64 tags found for package: $PACKAGE"
 
-              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${STABLE_PRESENT}")
-              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${ARM64_PRESENT}")
+              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:stable")
+              SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:arm64")
             else
               echo "No tags with both 'stable' and 'arm64' found for package: $PACKAGE, skipping..."
             fi
