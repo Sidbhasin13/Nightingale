@@ -144,13 +144,32 @@ jobs:
         with:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
-      - name: Create ZIP File for SARIF and SBOM
-        run: |
-          echo "Creating ZIP file..."
-          zip -r artifacts.zip artifacts/
-
-      - name: Upload Artifact
+      - name: Upload SBOM Files to Artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: trivy-results-and-sbom
-          path: artifacts.zip
+          name: sbom-files
+          path: artifacts/*.cyclonedx.json
+  
+  final:
+    name: Aggregate SBOM Files
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download SBOM Files Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: sbom-files
+          path: /home/runner/work/${{ github.repository }}/artifacts/
+
+      - name: Create ZIP File for SBOM Files
+        run: |
+          echo "Creating ZIP file for SBOM files..."
+          DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
+          zip -r sboms.zip $DOWNLOAD_DIR/*.cyclonedx.json
+          ls -al
+
+      - name: Upload Consolidated SBOM Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: consolidated-sboms
+          path: sboms.zip
