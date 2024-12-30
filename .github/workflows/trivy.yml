@@ -79,7 +79,7 @@ jobs:
             exit 0
           fi
 
-          echo "STABLE_IMAGES=${STABLE_IMAGES[@]}" >> $GITHUB_ENV
+          echo "STABLE_IMAGES=$(echo ${STABLE_IMAGES[@]} | jq -R . | jq -s .)" >> $GITHUB_ENV
 
   scan:
     name: Run Trivy Scan and Generate SBOM
