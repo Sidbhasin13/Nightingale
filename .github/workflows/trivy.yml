@@ -209,6 +209,8 @@ jobs:
     steps:
       - name: Delete Artifacts
         uses: joutvhu/delete-artifact@v2
+        with:
+          name: sbom-files
         # env:
         #   GITHUB_TOKEN: ${{ secrets.TOKEN }}
         # with:
