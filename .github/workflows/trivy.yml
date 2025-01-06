@@ -140,8 +140,9 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
+            --output $GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \ \
             $PLATFORM_OPTION ${{ matrix.image }}
+            echo "SBOM for ${{ matrix.image }} saved at artifacts/sbom-${IMAGE_NAME}.cyclonedx.json"
 
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
@@ -151,7 +152,7 @@ jobs:
             exit 1
           fi
 
-          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+          if [[ ! -f "$GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
@@ -171,16 +172,32 @@ jobs:
       #     name: sbom-files
       #     path: artifacts/*.cyclonedx.json
 
-  zip_directory_and_send_email:
-    name: Zip and Send SBOM Files via Gmail
+  consolidate_and_send_email:
+    name: Consolidate and Send SBOM Files
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Zip SBOM files
+      - name: Download SBOM Files from All Jobs
         run: |
-          mkdir -p zip-directory
-          mv artifacts/*.cyclonedx.json zip-directory/
-          zip -r sbom-files.zip zip-directory/*.cyclonedx.json
+          echo "Downloading SBOM files from all parallel jobs..."
+          mkdir -p consolidated
+          cp $GITHUB_WORKSPACE/artifacts/*.cyclonedx.json consolidated/
+          ls -al consolidated/
+
+      - name: Create Final Zip with All SBOM Files
+        run: |
+          zip -r final-sbom-files.zip consolidated/*.cyclonedx.json
+          echo "Final consolidated SBOM zip created: final-sbom-files.zip"
+
+  # zip_directory_and_send_email:
+  #   name: Zip and Send SBOM Files via Gmail
+  #   needs: scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download Zip File
+  #       run: |
+  #         cp ${{ needs.scan.outputs.zip_file }} sbom-files.zip
+  #         ls -al
 
     # Send email logic remains the same
     # Uncomment to use the email sending feature:
