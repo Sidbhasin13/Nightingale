@@ -188,10 +188,12 @@ jobs:
           for job in ${{ needs.scan.strategy.matrix.image }}; do
             cp ${{ needs.scan.outputs.zip_file }} consolidated/
           done
+      - name: Check Contents of Consolidated Directory
+        run: ls -al consolidated/
 
-      - name: Create Final Zip with All SBOM Files
-        run: |
-          zip -r final-sbom-files.zip consolidated/*.cyclonedx.json
+      # - name: Create Final Zip with All SBOM Files
+      #   run: |
+      #     zip -r final-sbom-files.zip consolidated/*.cyclonedx.json
 
     # Send email logic remains the same
     # Uncomment to use the email sending feature:
