@@ -156,16 +156,16 @@ jobs:
             exit 1
           fi
       
-      - name: Move SBOM file to specific directory
-        run: |
-          TARGET_DIR="/tmp/sbom-artifacts/${{ matrix.image }}"
-          mkdir -p $TARGET_DIR
-          if [[ ! -f "$TARGET_DIR/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
-            echo "Moving SBOM file to $TARGET_DIR..."
-            mv /tmp/sbom-artifacts/${{ matrix.image }}/*.cyclonedx.json $TARGET_DIR/
-          else
-            echo "SBOM file already exists in the target directory, skipping move."
-          fi
+      # - name: Move SBOM file to specific directory
+      #   run: |
+      #     TARGET_DIR="/tmp/sbom-artifacts/${{ matrix.image }}"
+      #     mkdir -p $TARGET_DIR
+      #     if [[ ! -f "$TARGET_DIR/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+      #       echo "Moving SBOM file to $TARGET_DIR..."
+      #       mv /tmp/sbom-artifacts/${{ matrix.image }}/*.cyclonedx.json $TARGET_DIR/
+      #     else
+      #       echo "SBOM file already exists in the target directory, skipping move."
+      #     fi
       
       - name: Set Image Name for Upload
         id: set_image_name
