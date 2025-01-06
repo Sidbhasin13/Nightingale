@@ -1,0 +1,50 @@
+name: Cleanup SBOM Artifact
+
+on:
+  workflow_run:
+    workflows: ["Trivy Scan"]
+    types:
+      - completed
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the list of artifacts
+        id: fetch_artifacts
+        run: |
+          echo "Fetching list of artifacts..."
+          ARTIFACTS=$(curl -s -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts")
+          
+          # Debug print: show the raw JSON response
+          echo "Artifacts Response: $ARTIFACTS"
+
+          # Exit if no artifacts found
+          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | jq 'length')
+
+          if [ "$ARTIFACT_COUNT" -eq 0 ]; then
+            echo "No artifacts found to delete."
+            exit 0
+          fi
+
+          # Extract the most recent artifact ID
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.[0].id')
+
+          echo "Most recent artifact ID: $ARTIFACT_ID"
+          echo "::set-output name=artifact_id::$ARTIFACT_ID"
+
+      - name: Delete the most recent artifact
+        run: |
+          ARTIFACT_ID=${{ steps.fetch_artifacts.outputs.artifact_id }}
+          
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "No artifact found to delete."
+            exit 1
+          fi
+
+          echo "Deleting artifact with ID $ARTIFACT_ID..."
+          curl -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
+
+          echo "Artifact deleted successfully."
