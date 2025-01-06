@@ -199,21 +199,21 @@ jobs:
       #     from: ${{ secrets.GMAIL_USERNAME }}
       #     attachments: artifacts.zip
 
-      - name: Get Workflow Run ID
-        id: workflow_id
-        run: echo "run_id=${{ github.run_id }}" >> $GITHUB_ENV
+      # - name: Get Workflow Run ID
+      #   id: workflow_id
+      #   run: echo "run_id=${{ github.run_id }}" >> $GITHUB_ENV
 
       - name: List and Delete Artifacts After Usage
         env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
-          RUN_ID: ${{ env.run_id }}
+          GHA_TOKEN: ${{ secrets.TOKEN }}
+          # RUN_ID: ${{ env.run_id }}
         run: |
-          echo "Fetching artifact list from workflow run ID ${RUN_ID}..."
+          echo "Fetching artifact list from workflow run ID ${{ github.run_id }}..."
           
           # Get the list of artifact IDs
-          ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+          ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GHA_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts")
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts")
           
           echo "Artifact list response: $ARTIFACTS_RESPONSE"
           
@@ -231,7 +231,7 @@ jobs:
             echo "Deleting artifact ID: $ARTIFACT_ID..."
             
             # Make the DELETE request to GitHub API
-            DELETE_RESPONSE=$(curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+            DELETE_RESPONSE=$(curl -s -X DELETE -H "Authorization: Bearer $GHA_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}")
             
