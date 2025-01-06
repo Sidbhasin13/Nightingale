@@ -140,7 +140,7 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output $GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \ \
+            --output $GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
           echo "SBOM for ${{ matrix.image }} saved at artifacts/sbom-${IMAGE_NAME}.cyclonedx.json"
 
