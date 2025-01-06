@@ -5,6 +5,10 @@ on:
     workflows: ["Trivy Scan"]
     types:
       - completed
+  push:
+    branches: ["debug-trivy-scan-issue"]
+    paths:
+      - ".github/workflows/cleanup-pipeline.yml"
 
 jobs:
   cleanup:

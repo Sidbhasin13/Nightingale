@@ -171,7 +171,7 @@ jobs:
           name: sbom-files
           path: artifacts/*.cyclonedx.json
 
-  zip_and_send_email:
+  zip_directory_and_send_email:
     name: Zip and Send SBOM Files via Gmail
     needs: scan
     runs-on: ubuntu-latest
