@@ -173,12 +173,12 @@ jobs:
       - name: Access Shared Workspace
         run: |
           echo "Accessing SBOM files from the shared workspace..."
-          ls -al $GITHUB_WORKSPACE/artifacts
+          ls -al artifacts
 
       - name: Zip SBOM files
         run: |
           echo "Zipping all SBOM files..."
-          zip -j artifacts.zip $GITHUB_WORKSPACE/artifacts/*.cyclonedx.json
+          zip -j artifacts.zip artifacts/*.cyclonedx.json
 
       - name: Send SBOM Files via Gmail
         uses: dawidd6/action-send-mail@v3
