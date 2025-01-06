@@ -156,14 +156,14 @@ jobs:
             exit 1
           fi
       
-      - name: Set Image Name for Upload
-        id: set_image_name
-        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
+      # - name: Set Image Name for Upload
+      #   id: set_image_name
+      #   run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
 
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: $GITHUB_WORKSPACE/artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
+          sarif_file: $GITHUB_WORKSPACE/artifacts/trivy-results-${{ steps.run_trivy.outputs.image_name }}.sarif
       
       # - name: Upload SBOM files as artifacts
       #   uses: actions/upload-artifact@v3
