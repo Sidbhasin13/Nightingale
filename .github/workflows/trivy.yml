@@ -230,7 +230,9 @@ jobs:
       #     done
 
       - name: Delete Artifacts
-        uses: josebalius/delete-artifacts@v1
+        uses: christian-korneck/delete-run-artifacts-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
         with:
-          token: ${{ secrets.TOKEN }}
-          run_id: ${{ github.run_id }}
+          parent_runid: ${{ github.run_id }}
+          parent_repo: ${{ github.repository }}
