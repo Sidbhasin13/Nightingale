@@ -216,7 +216,7 @@ jobs:
 
           if [ -n "$ARTIFACT_ID" ] && [ "$ARTIFACT_NAME" == "sbom-files" ]; then
             echo "Deleting the most recent artifact '$ARTIFACT_NAME' with ID $ARTIFACT_ID..."
-            curl -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            curl -v -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
           else
             echo "No recent artifact found with name 'sbom-files'."
