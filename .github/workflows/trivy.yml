@@ -125,14 +125,14 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          mkdir -p artifacts
+          mkdir -p mkdir -p $GITHUB_WORKSPACE/artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
             --format sarif \
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
+            --output $GITHUB_WORKSPACE/artifacts/trivy-results-${IMAGE_NAME}.sarif \
             $PLATFORM_OPTION ${{ matrix.image }}
 
           trivy image \
@@ -144,9 +144,9 @@ jobs:
             $PLATFORM_OPTION ${{ matrix.image }}
 
           echo "Verifying files in artifacts directory..."
-          ls -al artifacts/
+          ls -al $GITHUB_WORKSPACE/artifacts/
 
-          if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+          if [[ ! -f "$GITHUB_WORKSPACE/artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
             echo "Error: SARIF file was not created."
             exit 1
           fi
@@ -163,7 +163,7 @@ jobs:
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
+          sarif_file: $GITHUB_WORKSPACE/artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
       
       # - name: Upload SBOM files as artifacts
       #   uses: actions/upload-artifact@v3
