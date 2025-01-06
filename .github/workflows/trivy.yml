@@ -170,16 +170,15 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Collect all SBOM files
+      - name: Access Shared Workspace
         run: |
-          echo "Collecting SBOM files from all scans..."
-          mkdir -p zip-directory
-          cp /home/runner/work/${{ github.repository }}/artifacts/*.cyclonedx.json zip-directory/
-          
+          echo "Accessing SBOM files from the shared workspace..."
+          ls -al $GITHUB_WORKSPACE/artifacts
+
       - name: Zip SBOM files
         run: |
           echo "Zipping all SBOM files..."
-          zip -r artifacts.zip zip-directory/*.cyclonedx.json
+          zip -j artifacts.zip $GITHUB_WORKSPACE/artifacts/*.cyclonedx.json
 
       - name: Send SBOM Files via Gmail
         uses: dawidd6/action-send-mail@v3
