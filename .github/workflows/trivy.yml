@@ -165,23 +165,25 @@ jobs:
         with:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
       
+      - name: Upload SBOM files as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom-files
+          path: artifacts/*.cyclonedx.json
+
   zip_and_send_email:
     name: Zip and Send SBOM Files via Gmail
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Download SBOM files from scan job
-        run: |
-          echo "Fetching SBOM files from the artifacts directory in the scan job..."
-          mkdir -p zip-directory
-          cp $GITHUB_WORKSPACE/artifacts/*.cyclonedx.json zip-directory/
-        
+        uses: actions/download-artifact@v3
+        with:
+          name: sbom-files
+          path: zip-directory
+
       - name: Zip SBOM files
         run: |
-          echo "Zipping all SBOM files..."
           zip -r artifacts.zip zip-directory/*.cyclonedx.json
 
       - name: Send SBOM Files via Gmail
@@ -196,3 +198,22 @@ jobs:
           to: "${{ secrets.USER_SB }},${{ secrets.USER_RN }}"
           from: ${{ secrets.GMAIL_USERNAME }}
           attachments: artifacts.zip
+
+      - name: Get Workflow Run ID
+        id: workflow_id
+        run: echo "run_id=${{ github.run_id }}" >> $GITHUB_ENV
+
+      - name: Delete Artifacts After Usage
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN }}
+          RUN_ID: ${{ env.run_id }}
+        run: |
+          echo "Deleting uploaded artifacts..."
+          ARTIFACTS=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" | jq -r '.artifacts[]?.id')
+
+          for ARTIFACT_ID in $ARTIFACTS; do
+            curl -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}"
+            echo "Deleted artifact ID: $ARTIFACT_ID"
+          done
