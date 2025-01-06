@@ -199,32 +199,38 @@ jobs:
       #     from: ${{ secrets.GMAIL_USERNAME }}
       #     attachments: artifacts.zip
 
-      - name: List and Delete Artifacts After Usage
-        env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
-        run: |
-          echo "Fetching artifact list from workflow run ID ${{ github.run_id }}..."
+      # - name: List and Delete Artifacts After Usage
+      #   env:
+      #     GH_TOKEN: ${{ secrets.TOKEN }}
+      #   run: |
+      #     echo "Fetching artifact list from workflow run ID ${{ github.run_id }}..."
   
-          ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts")
+      #     ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+      #       "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts")
           
-          echo "Artifacts API response: $ARTIFACTS_RESPONSE"
+      #     echo "Artifacts API response: $ARTIFACTS_RESPONSE"
 
-          ARTIFACT_IDS=$(echo "$ARTIFACTS_RESPONSE" | jq -r '.artifacts[]?.id')
+      #     ARTIFACT_IDS=$(echo "$ARTIFACTS_RESPONSE" | jq -r '.artifacts[]?.id')
 
-          if [ -z "$ARTIFACT_IDS" ]; then
-            echo "No artifacts found or failed to retrieve artifact IDs."
-            exit 1
-          fi
+      #     if [ -z "$ARTIFACT_IDS" ]; then
+      #       echo "No artifacts found or failed to retrieve artifact IDs."
+      #       exit 1
+      #     fi
 
-          # Loop through artifact IDs and delete them
-          for ARTIFACT_ID in $ARTIFACT_IDS; do
-            echo "Deleting artifact ID: $ARTIFACT_ID..."
+      #     # Loop through artifact IDs and delete them
+      #     for ARTIFACT_ID in $ARTIFACT_IDS; do
+      #       echo "Deleting artifact ID: $ARTIFACT_ID..."
             
-            # Make the DELETE request to GitHub API
-            DELETE_RESPONSE=$(curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}")
+      #       # Make the DELETE request to GitHub API
+      #       DELETE_RESPONSE=$(curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+      #         -H "Accept: application/vnd.github.v3+json" \
+      #         "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}")
             
-            echo "Artifact deletion response: $DELETE_RESPONSE"
-          done
+      #       echo "Artifact deletion response: $DELETE_RESPONSE"
+      #     done
+
+      - name: Delete Artifacts
+        uses: josebalius/delete-artifacts@v1
+        with:
+          token: ${{ secrets.TOKEN }}
+          run_id: ${{ github.run_id }}
