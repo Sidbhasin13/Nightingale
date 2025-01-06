@@ -174,7 +174,7 @@ jobs:
       - name: Create Zip of SBOM Files
         id: zip_file
         run: |
-          zip -r sbom-files.zip artifacts/
+          zip -r sbom-files.zip artifacts/*.cyclonedx.json
           echo "::set-output name=zip_file::$(pwd)/sbom-files.zip"
           
   zip_directory_and_send_email:
