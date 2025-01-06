@@ -125,14 +125,14 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          mkdir -p artifacts
+          mkdir -p /tmp/sbom-files
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
             --format sarif \
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
+            --output /tmp/sbom-files/trivy-results-${IMAGE_NAME}.sarif \
             $PLATFORM_OPTION ${{ matrix.image }}
 
           trivy image \
@@ -140,18 +140,18 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
+            --output /tmp/sbom-files/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
 
           echo "Verifying files in artifacts directory..."
-          ls -al artifacts/
+          ls -al /tmp/sbom-files/
 
-          if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+          if [[ ! -f "/tmp/sbom-files/trivy-results-${IMAGE_NAME}.sarif" ]]; then
             echo "Error: SARIF file was not created."
             exit 1
           fi
 
-          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+          if [[ ! -f "/tmp/sbom-files/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
@@ -163,7 +163,7 @@ jobs:
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
+          sarif_file: /tmp/sbom-files/trivy-results-${{ env.IMAGE_NAME }}.sarif
       
       # - name: Upload SBOM files as artifacts
       #   uses: actions/upload-artifact@v3
@@ -171,28 +171,29 @@ jobs:
       #     name: sbom-files
       #     path: artifacts/*.cyclonedx.json
 
-      - name: Create Zip of SBOM Files
-        id: zip_file
-        run: |
-          zip -r sbom-files.zip artifacts/*.cyclonedx.json
-          echo "::set-output name=zip_file::$(pwd)/sbom-files.zip"
+      # - name: Create Zip of SBOM Files
+      #   id: zip_file
+      #   run: |
+      #     zip -r sbom-files.zip artifacts/*.cyclonedx.json
+      #     echo "::set-output name=zip_file::$(pwd)/sbom-files.zip"
       
-      - name: List Files in Artifacts Directory
-        run: ls -al artifacts/
+      # - name: List Files in Artifacts Directory
+      #   run: ls -al artifacts/
           
   zip_directory_and_send_email:
     name: Zip and Send SBOM Files via Gmail
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Download SBOM Files from All Jobs
+      - name: Verify SBOM Files
         run: |
-          mkdir -p consolidated
-          for job in ${{ needs.scan.strategy.matrix.image }}; do
-            cp artifacts/*.cyclonedx.json consolidated/
-          done
-      - name: Check Contents of Consolidated Directory
-        run: ls -al consolidated/
+          echo "Listing SBOM files in /tmp/sbom-files:"
+          ls -al /tmp/sbom-files
+
+      - name: Create Final Zip with All SBOM Files
+        run: |
+          zip -r /tmp/final-sbom-files.zip /tmp/sbom-files/*.cyclonedx.json
+          echo "Final zip created at /tmp/final-sbom-files.zip"
 
       # - name: Create Final Zip with All SBOM Files
       #   run: |
