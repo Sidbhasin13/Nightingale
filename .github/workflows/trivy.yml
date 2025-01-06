@@ -205,12 +205,12 @@ jobs:
   cleanup:
     name: Delete Artifacts
     runs-on: ubuntu-latest
-    needs: [zip_and_send_email]
+    needs: [scan]
     steps:
       - name: Delete Artifacts
-        uses: christian-korneck/delete-run-artifacts-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.TOKEN }}
-        with:
-          parent_runid: ${{ github.run_id }}
-          parent_repo: ${{ github.repository }}
+        uses: joutvhu/delete-artifact@v2
+        # env:
+        #   GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        # with:
+        #   parent_runid: ${{ github.run_id }}
+        #   parent_repo: ${{ github.repository }}
