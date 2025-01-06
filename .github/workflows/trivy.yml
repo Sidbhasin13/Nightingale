@@ -204,18 +204,17 @@ jobs:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
           echo "Fetching artifact list from workflow run ID ${{ github.run_id }}..."
-          
-          # Get the list of artifact IDs
+  
           ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts")
           
-          # Extract artifact IDs using jq
+          echo "Artifacts API response: $ARTIFACTS_RESPONSE"
+
           ARTIFACT_IDS=$(echo "$ARTIFACTS_RESPONSE" | jq -r '.artifacts[]?.id')
 
-          # Check if we got any artifact IDs
           if [ -z "$ARTIFACT_IDS" ]; then
             echo "No artifacts found or failed to retrieve artifact IDs."
-            exit 0
+            exit 1
           fi
 
           # Loop through artifact IDs and delete them
