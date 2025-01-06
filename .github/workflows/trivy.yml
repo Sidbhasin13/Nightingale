@@ -182,10 +182,16 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Download Zip File
+      - name: Download SBOM Files from All Jobs
         run: |
-          cp ${{ needs.scan.outputs.zip_file }} sbom-files.zip
-          ls -al
+          mkdir -p consolidated
+          for job in ${{ needs.scan.strategy.matrix.image }}; do
+            cp ${{ needs.scan.outputs.zip_file }} consolidated/
+          done
+
+      - name: Create Final Zip with All SBOM Files
+        run: |
+          zip -r final-sbom-files.zip consolidated/*.cyclonedx.json
 
     # Send email logic remains the same
     # Uncomment to use the email sending feature:
