@@ -125,15 +125,14 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          TARGET_DIR="/tmp/sbom-artifacts/${{ matrix.image }}"
-          mkdir -p $TARGET_DIR
+          mkdir -p /tmp/sbom-artifacts/${{ matrix.image }}
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
             --format sarif \
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output $TARGET_DIR/trivy-results-${IMAGE_NAME}.sarif \
+            --output /tmp/sbom-artifacts/${{ matrix.image }}/trivy-results-${IMAGE_NAME}.sarif \
             $PLATFORM_OPTION ${{ matrix.image }}
 
           trivy image \
@@ -141,29 +140,33 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output $TARGET_DIR/sbom-${IMAGE_NAME}.cyclonedx.json \
+            --output /tmp/sbom-artifacts/${{ matrix.image }}/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
 
           echo "Verifying files in artifacts directory..."
-          ls -al $TARGET_DIR/
+          ls -al /tmp/sbom-artifacts/${{ matrix.image }}/
 
-          if [[ ! -f "$TARGET_DIR/trivy-results-${IMAGE_NAME}.sarif" ]]; then
+          if [[ ! -f "/tmp/sbom-artifacts/${{ matrix.image }}/trivy-results-${IMAGE_NAME}.sarif" ]]; then
             echo "Error: SARIF file was not created."
             exit 1
           fi
 
-          # if [[ ! -f "$TARGET_DIR/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
-          #   echo "Error: JSON SBOM file was not created."
-          #   exit 1
-          # fi
-
+          if [[ ! -f "/tmp/sbom-artifacts/${{ matrix.image }}/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+            echo "Error: JSON SBOM file was not created."
+            exit 1
+          fi
+      
+      - name: Move SBOM file to specific directory
+        run: |
+          TARGET_DIR="/tmp/sbom-artifacts/${{ matrix.image }}"
+          mkdir -p $TARGET_DIR
           if [[ ! -f "$TARGET_DIR/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Moving SBOM file to $TARGET_DIR..."
             mv /tmp/sbom-artifacts/${{ matrix.image }}/*.cyclonedx.json $TARGET_DIR/
           else
             echo "SBOM file already exists in the target directory, skipping move."
           fi
-          
+      
       - name: Set Image Name for Upload
         id: set_image_name
         run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
@@ -171,7 +174,7 @@ jobs:
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: $TARGET_DIR/trivy-results-${{ env.IMAGE_NAME }}.sarif
+          sarif_file: /tmp/sbom-artifacts/${{ matrix.image }}/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
   zip_and_send_email:
     name: Zip and Send SBOM Files via Gmail
