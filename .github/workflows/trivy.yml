@@ -199,20 +199,22 @@ jobs:
       #     from: ${{ secrets.GMAIL_USERNAME }}
       #     attachments: artifacts.zip
 
-      - name: Cleanup Temporary Files
-        run: rm -rf zip-directory artifacts.zip
+      - name: Fetch artifact ID and delete from GitHub
+      run: |
+        echo "Fetching list of artifacts..."
+        ARTIFACTS=$(curl -s -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/artifacts")
 
-  cleanup:
-    name: Delete Artifacts
-    runs-on: ubuntu-latest
-    needs: [scan]
-    steps:
-      - name: Delete Artifacts
-        uses: joutvhu/delete-artifact@v2
-        with:
-          name: sbom-files
-        # env:
-        #   GITHUB_TOKEN: ${{ secrets.TOKEN }}
-        # with:
-        #   parent_runid: ${{ github.run_id }}
-        #   parent_repo: ${{ github.repository }}
+        echo "List of artifacts:"
+        echo "$ARTIFACTS"
+
+        # Extract the artifact ID for 'sbom-files'
+        ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name == "sbom-files") | .id')
+
+        if [ -n "$ARTIFACT_ID" ]; then
+          echo "Deleting artifact with ID $ARTIFACT_ID..."
+          curl -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
+        else
+          echo "No artifact found with name 'sbom-files'."
+        fi
