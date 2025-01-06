@@ -201,7 +201,7 @@ jobs:
 
   delete_artifact:
     name: Delete Artifact After Use
-    needs: zip_and_send_email
+    needs: zip_and_send_email  
     runs-on: ubuntu-latest
     steps:
       - name: Fetch the list of artifacts
@@ -211,10 +211,18 @@ jobs:
           ARTIFACTS=$(curl -s -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/artifacts")
 
-          echo "Artifacts: $ARTIFACTS"
+          echo "Artifacts Response: $ARTIFACTS"
           
-          # Extract the most recent artifact ID
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.[0].id') 
+          # Check if the artifacts array is empty
+          ARTIFACT_COUNT=$(echo "$ARTIFACTS" | jq 'length')
+
+          if [ "$ARTIFACT_COUNT" -eq 0 ]; then
+            echo "No artifacts found to delete."
+            exit 0  # Exit successfully if no artifacts are found
+          fi
+
+          # Extract the most recent artifact ID (the first artifact in the list)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.[0].id')  # Get the ID of the most recent artifact
 
           echo "Most recent artifact ID: $ARTIFACT_ID"
           echo "::set-output name=artifact_id::$ARTIFACT_ID"
@@ -222,12 +230,15 @@ jobs:
       - name: Delete the most recent artifact
         run: |
           ARTIFACT_ID=${{ steps.fetch_artifacts.outputs.artifact_id }}
+          
           if [ -z "$ARTIFACT_ID" ]; then
             echo "No artifact found to delete."
             exit 1
           fi
+
           echo "Deleting artifact with ID $ARTIFACT_ID..."
           curl -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
 
           echo "Artifact deleted successfully."
+
