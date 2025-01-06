@@ -173,7 +173,7 @@ jobs:
       - name: Access Shared Workspace
         run: |
           echo "Accessing SBOM files from the shared workspace..."
-          ls -al artifacts
+          ls -al artifacts/
 
       - name: Zip SBOM files
         run: |
