@@ -176,6 +176,9 @@ jobs:
         run: |
           zip -r sbom-files.zip artifacts/*.cyclonedx.json
           echo "::set-output name=zip_file::$(pwd)/sbom-files.zip"
+      
+      - name: List Files in Artifacts Directory
+        run: ls -al artifacts/
           
   zip_directory_and_send_email:
     name: Zip and Send SBOM Files via Gmail
@@ -186,7 +189,7 @@ jobs:
         run: |
           mkdir -p consolidated
           for job in ${{ needs.scan.strategy.matrix.image }}; do
-            cp ${{ needs.scan.outputs.zip_file }} consolidated/
+            cp artifacts/*.cyclonedx.json consolidated/
           done
       - name: Check Contents of Consolidated Directory
         run: ls -al consolidated/
