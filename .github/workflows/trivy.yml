@@ -203,19 +203,35 @@ jobs:
         id: workflow_id
         run: echo "run_id=${{ github.run_id }}" >> $GITHUB_ENV
 
-      - name: Delete Artifacts After Usage
+      - name: List and Delete Artifacts After Usage
         env:
-          TOKEN: ${{ secrets.TOKEN }}
+          GHA_TOKEN: ${{ secrets.TOKEN }}
           RUN_ID: ${{ env.run_id }}
         run: |
-          echo "Deleting uploaded artifacts..."
-          ARTIFACTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
+          echo "Fetching artifact list from workflow run ID ${RUN_ID}..."
+          
+          # Get the list of artifact IDs
+          ARTIFACTS_RESPONSE=$(curl -s -H "Authorization: Bearer $GHA_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts")
+          
+          echo "Artifact list response: $ARTIFACTS_RESPONSE"
+          
+          # Extract artifact IDs using jq
+          ARTIFACT_IDS=$(echo "$ARTIFACTS_RESPONSE" | jq -r '.artifacts[]?.id')
 
-          echo "ARTIFACTS HAI KYA?? : $ARTIFACTS"
+          # Check if we got any artifact IDs
+          if [ -z "$ARTIFACT_IDS" ]; then
+            echo "No artifacts found or failed to retrieve artifact IDs."
+            exit 1
+          fi
 
-          for ARTIFACT_ID in $ARTIFACTS; do
-            curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}" 
-            echo "Deleted artifact ID: $ARTIFACT_ID"
+          # Loop through artifact IDs and delete them
+          for ARTIFACT_ID in $ARTIFACT_IDS; do
+            echo "Deleting artifact ID: $ARTIFACT_ID..."
+            
+            # Make the DELETE request to GitHub API
+            DELETE_RESPONSE=$(curl -s -X DELETE -H "Authorization: Bearer $GHA_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}")
+            
+            echo "Artifact deletion response: $DELETE_RESPONSE"
           done
