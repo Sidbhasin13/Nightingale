@@ -151,7 +151,7 @@ jobs:
             exit 1
           fi
 
-          if [[ ! -f "$GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \" ]]; then
+          if [[ ! -f "$GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
