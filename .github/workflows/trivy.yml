@@ -199,22 +199,25 @@ jobs:
       #     from: ${{ secrets.GMAIL_USERNAME }}
       #     attachments: artifacts.zip
 
-      - name: Fetch artifact ID and delete from GitHub
+      - name: Fetch and Delete the Most Recent Artifact from GitHub
         run: |
           echo "Fetching list of artifacts..."
           ARTIFACTS=$(curl -s -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/actions/artifacts")
 
-          echo "List of artifacts:"
-          echo "$ARTIFACTS"
+          echo "List of artifacts fetched..."
 
-          # Extract the artifact ID for 'sbom-files'
-          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq -r '.artifacts[] | select(.name == "sbom-files") | .id')
+          # Get the most recent artifact based on created_at timestamp
+          RECENT_ARTIFACT=$(echo "$ARTIFACTS" | jq -r '.artifacts | sort_by(.created_at) | last')
 
-          if [ -n "$ARTIFACT_ID" ]; then
-            echo "Deleting artifact with ID $ARTIFACT_ID..."
+          # Extract artifact ID and name of the most recent one
+          ARTIFACT_ID=$(echo "$RECENT_ARTIFACT" | jq -r '.id')
+          ARTIFACT_NAME=$(echo "$RECENT_ARTIFACT" | jq -r '.name')
+
+          if [ -n "$ARTIFACT_ID" ] && [ "$ARTIFACT_NAME" == "sbom-files" ]; then
+            echo "Deleting the most recent artifact '$ARTIFACT_NAME' with ID $ARTIFACT_ID..."
             curl -X DELETE -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID"
           else
-            echo "No artifact found with name 'sbom-files'."
+            echo "No recent artifact found with name 'sbom-files'."
           fi
