@@ -142,7 +142,6 @@ jobs:
             --timeout 60m \
             --output $GITHUB_WORKSPACE/artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
-          echo "SBOM for ${{ matrix.image }} saved at artifacts/sbom-${IMAGE_NAME}.cyclonedx.json"
 
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
