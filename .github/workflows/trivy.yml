@@ -86,7 +86,7 @@ jobs:
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
     outputs:
-    sbom_dir: ${{ steps.sbom_dir.outputs.sbom_dir }}
+      sbom_dir: ${{ steps.sbom_dir.outputs.sbom_dir }}
     steps:
       - name: Install Trivy
         run: |
