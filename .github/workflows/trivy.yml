@@ -178,6 +178,7 @@ jobs:
       - name: Zip SBOM files
         run: |
           echo "Zipping SBOM files..."
+          ls -al $GITHUB_WORKSPACE/artifacts/
           zip -j $GITHUB_WORKSPACE/artifacts.zip $GITHUB_WORKSPACE/artifacts/*.cyclonedx.json
 
       # - name: Send SBOM Files via Gmail
