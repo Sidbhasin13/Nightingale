@@ -85,6 +85,8 @@ jobs:
     strategy:
       matrix:
         image: ${{ fromJson(needs.setup.outputs.images) }}
+    outputs:
+    sbom_dir: ${{ steps.sbom_dir.outputs.sbom_dir }}
     steps:
       - name: Install Trivy
         run: |
@@ -118,7 +120,6 @@ jobs:
       - name: Run Trivy Vulnerability Scanner
         run: |
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
-          SBOM_PATH="$GITHUB_WORKSPACE/sbom-${IMAGE_NAME}.cyclonedx.json"
           echo "Scanning ${{ matrix.image }}..."
           if [[ "${{ matrix.image }}" == *":arm64" ]]; then
             PLATFORM_OPTION="--platform=linux/arm64"
@@ -126,7 +127,7 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          # mkdir -p artifacts
+          mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           # trivy image \
           #   --format sarif \
@@ -141,28 +142,23 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output "$SBOM_PATH" \
+            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
-          echo "SBOM saved at $SBOM_PATH"
 
-          # echo "Verifying files in artifacts directory..."
-          # ls -al artifacts/
+          echo "Verifying files in artifacts directory..."
+          ls -al artifacts/
 
           # if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
           #   echo "Error: SARIF file was not created."
           #   exit 1
           # fi
 
-          if [[ ! -f "$SBOM_PATH" ]]; then
+          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
-          
-      - name: Verify Generated SBOM Files
-        run: |
-          echo "Listing workspace contents:"
-          ls -al $GITHUB_WORKSPACE
 
+          echo "::set-output name=sbom_dir::artifacts"
       # - name: Set Image Name for Upload
       #   id: set_image_name
       #   run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
@@ -171,26 +167,22 @@ jobs:
       #   uses: github/codeql-action/upload-sarif@v3
       #   with:
       #     sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
+      
+      
 
   zip_and_send_email:
     name: Zip and Send SBOM Files via Gmail
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Restore Cached SBOM Files
-        uses: actions/cache@v3
-        with:
-          path: $GITHUB_WORKSPACE
-          key: ${{ runner.os }}-sbom-${{ github.sha }}
-
-      - name: Verify SBOM Files in Workspace
+      - name: Copy SBOM Files from Previous Job
         run: |
-          echo "Verifying SBOM files..."
-          ls -al $GITHUB_WORKSPACE
+          mkdir -p zip-directory
+          cp -R ${{ needs.scan.outputs.sbom_dir }}/*.cyclonedx.json zip-directory/
 
-      - name: Zip SBOM Files
+      - name: Zip SBOM files
         run: |
-          zip -j $GITHUB_WORKSPACE/artifacts.zip $GITHUB_WORKSPACE/sbom-*.cyclonedx.json
+          zip -r artifacts.zip zip-directory/*.cyclonedx.json
 
       # - name: Send SBOM Files via Gmail
       #   uses: dawidd6/action-send-mail@v3
