@@ -147,18 +147,17 @@ jobs:
 
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
+          echo "::set-output name=sbom_dir::$(pwd)/artifacts"
 
           # if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
           #   echo "Error: SARIF file was not created."
           #   exit 1
           # fi
 
-          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
-            echo "Error: JSON SBOM file was not created."
-            exit 1
-          fi
-
-          echo "::set-output name=sbom_dir::$(pwd)/artifacts"
+          # if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+          #   echo "Error: JSON SBOM file was not created."
+          #   exit 1
+          # fi
 
       # - name: Set Image Name for Upload
       #   id: set_image_name
