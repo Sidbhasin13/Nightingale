@@ -174,8 +174,8 @@ jobs:
     steps:
       - name: Verify SBOM Files Path
         run: |
-        echo "SBOM directory from scan job: ${{ env.sbom_dir }}"
-        ls -al ${{ env.sbom_dir }} 
+          echo "SBOM directory from scan job: ${{ env.sbom_dir }}"
+          ls -al ${{ env.sbom_dir }} 
 
       - name: Copy SBOM Files from Previous Job
         run: |
