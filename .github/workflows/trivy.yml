@@ -126,7 +126,7 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          mkdir -p artifacts
+          # mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           # trivy image \
           #   --format sarif \
@@ -153,10 +153,11 @@ jobs:
           #   exit 1
           # fi
 
-          if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
+          if [[ ! -f "$SBOM_PATH" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
+          
       - name: Verify Generated SBOM Files
         run: |
           echo "Listing workspace contents:"
