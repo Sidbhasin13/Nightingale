@@ -116,7 +116,6 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Run Trivy Vulnerability Scanner
-        id: sbom_dir
         run: |
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           echo "Scanning ${{ matrix.image }}..."
@@ -126,7 +125,8 @@ jobs:
           else
             PLATFORM_OPTION=""
           fi
-          mkdir -p artifacts
+          PERSIST_DIR=${{ github.workspace }}/sbom-files
+          mkdir -p $PERSIST_DIR
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           # trivy image \
           #   --format sarif \
@@ -141,12 +141,11 @@ jobs:
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
             --timeout 60m \
-            --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
+            --output $PERSIST_DIR/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
 
-          echo "Verifying files in artifacts directory..."
-          ls -al artifacts/
-          echo "sbom_dir=$(pwd)/artifacts" >> $GITHUB_ENV
+          echo "Verifying files in PERSIST_DIR directory..."
+          ls -al $PERSIST_DIR/
 
           # if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
           #   echo "Error: SARIF file was not created."
@@ -172,16 +171,12 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Verify SBOM Files Path
-        run: |
-          echo "SBOM directory from scan job: ${{ env.sbom_dir }}"
-          ls -al ${{ env.sbom_dir }} 
-
       - name: Copy SBOM Files from Previous Job
         run: |
+          PERSIST_DIR=${{ github.workspace }}/sbom-files
           mkdir -p zip-directory
-          echo "Copying SBOM files from ${{ env.sbom_dir }}..."
-          cp -R ${{ env.sbom_dir }}/*.cyclonedx.json zip-directory/
+          echo "Copying SBOM files from $PERSIST_DIR..."
+          cp $PERSIST_DIR/*.cyclonedx.json zip-directory/
 
       - name: Zip SBOM files
         run: |
