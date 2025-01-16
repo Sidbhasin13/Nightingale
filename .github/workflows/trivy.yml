@@ -126,7 +126,8 @@ jobs:
             PLATFORM_OPTION=""
           fi
           PERSIST_DIR=${{ github.workspace }}/sbom-files
-          mkdir -p $PERSIST_DIR
+          FINAL_DIR=${{ github.workspace }}/final-sbom-files
+          mkdir -p $PERSIST_DIR $FINAL_DIR
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           # trivy image \
           #   --format sarif \
@@ -144,8 +145,11 @@ jobs:
             --output $PERSIST_DIR/sbom-${IMAGE_NAME}.cyclonedx.json \
             $PLATFORM_OPTION ${{ matrix.image }}
 
-          echo "Verifying files in PERSIST_DIR directory..."
-          ls -al $PERSIST_DIR/
+          echo "Moving completed SBOM files to a stable directory..."
+          mv $PERSIST_DIR/*.cyclonedx.json $FINAL_DIR/
+
+          echo "Listing final SBOM files:"
+          ls -al $FINAL_DIR
 
           # if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
           #   echo "Error: SARIF file was not created."
@@ -160,13 +164,13 @@ jobs:
       - name: Pack SBOM Files into Tarball
         run: |
           echo "Creating tarball in workspace..."
-          PERSIST_DIR=${{ github.workspace }}/sbom-files
-          tar -czvf $PERSIST_DIR/sbom-files.tar.gz -C $PERSIST_DIR .
-
-      - name: Verify Tarball in Workspace
+          FINAL_DIR=${{ github.workspace }}/final-sbom-files
+          tar -czvf ${{ github.workspace }}/sbom-files.tar.gz -C $FINAL_DIR .
+      
+      - name: Verify Tarball Exists
         run: |
-          echo "Verifying tarball in workspace..."
-          ls -al ${{ github.workspace }}/sbom-files
+          echo "Checking for tarball in workspace..."
+          ls -al ${{ github.workspace }}
 
       # - name: Set Image Name for Upload
       #   id: set_image_name
@@ -185,7 +189,7 @@ jobs:
       - name: Verify Tarball Exists
         run: |
           echo "Checking for tarball in workspace..."
-          ls -al ${{ github.workspace }}/sbom-files
+          ls -al ${{ github.workspace }}
 
       # - name: Copy Tarball from Scan Job
       #   run: |
