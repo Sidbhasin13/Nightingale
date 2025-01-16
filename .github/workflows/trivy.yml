@@ -165,10 +165,6 @@ jobs:
           echo "Verifying tarball..."
           ls -al sbom-files.tar.gz
 
-      - name: Save Tarball to Workspace
-        run: |
-          mv sbom-files.tar.gz ${{ github.workspace }}/sbom-files.tar.gz
-
       # - name: Set Image Name for Upload
       #   id: set_image_name
       #   run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
@@ -183,29 +179,34 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Copy Tarball from Scan Job
+      - name: Verify Tarball Exists
         run: |
-          echo "Copying tarball from workspace..."
-          cp ${{ github.workspace }}/sbom-files.tar.gz .
+          echo "Checking for tarball in workspace..."
+          ls -al ${{ github.workspace }}
 
-      - name: Extract Tarball
-        run: |
-          echo "Extracting SBOM files from tarball..."
-          mkdir -p sbom-files
-          tar -xzvf sbom-files.tar.gz -C sbom-files
+      # - name: Copy Tarball from Scan Job
+      #   run: |
+      #     echo "Copying tarball from workspace..."
+      #     cp ${{ github.workspace }}/sbom-files.tar.gz .
 
-          echo "Listing extracted files..."
-          ls -al sbom-files
+      # - name: Extract Tarball
+      #   run: |
+      #     echo "Extracting SBOM files from tarball..."
+      #     mkdir -p sbom-files
+      #     tar -xzvf sbom-files.tar.gz -C sbom-files
 
-      - name: Zip Extracted SBOM Files
-        run: |
-          echo "Zipping SBOM files..."
-          zip -r artifacts.zip sbom-files/*.cyclonedx.json
+      #     echo "Listing extracted files..."
+      #     ls -al sbom-files
 
-      - name: Verify Zipped File
-        run: |
-          echo "Verifying artifacts.zip..."
-          ls -al artifacts.zip
+      # - name: Zip Extracted SBOM Files
+      #   run: |
+      #     echo "Zipping SBOM files..."
+      #     zip -r artifacts.zip sbom-files/*.cyclonedx.json
+
+      # - name: Verify Zipped File
+      #   run: |
+      #     echo "Verifying artifacts.zip..."
+      #     ls -al artifacts.zip
 
       # - name: Send SBOM Files via Gmail
       #   uses: dawidd6/action-send-mail@v3
