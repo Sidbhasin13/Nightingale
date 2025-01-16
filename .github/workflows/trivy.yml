@@ -146,9 +146,6 @@ jobs:
 
           echo "Verifying files in PERSIST_DIR directory..."
           ls -al $PERSIST_DIR/
-          
-          echo "Packing SBOM files into tarball..."
-          tar -czvf sbom-files.tar.gz -C $PERSIST_DIR .
 
           # if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
           #   echo "Error: SARIF file was not created."
@@ -160,10 +157,16 @@ jobs:
           #   exit 1
           # fi
         
-      - name: Verify Tarball
+      - name: Pack SBOM Files into Tarball
         run: |
-          echo "Verifying tarball..."
-          ls -al sbom-files.tar.gz
+          echo "Creating tarball in workspace..."
+          PERSIST_DIR=${{ github.workspace }}/sbom-files
+          tar -czvf $PERSIST_DIR/sbom-files.tar.gz -C $PERSIST_DIR .
+
+      - name: Verify Tarball in Workspace
+        run: |
+          echo "Verifying tarball in workspace..."
+          ls -al ${{ github.workspace }}/sbom-files
 
       # - name: Set Image Name for Upload
       #   id: set_image_name
@@ -182,7 +185,7 @@ jobs:
       - name: Verify Tarball Exists
         run: |
           echo "Checking for tarball in workspace..."
-          ls -al ${{ github.workspace }}
+          ls -al ${{ github.workspace }}/sbom-files
 
       # - name: Copy Tarball from Scan Job
       #   run: |
