@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   setup:
-    name: Fetch Stable Images from GitHub Container Registry
+    name: Fetch Images from GitHub Container Registry
     runs-on: ubuntu-latest
     outputs:
       images: ${{ steps.fetch_images.outputs.images }}
@@ -29,49 +29,53 @@ jobs:
           CR_PAT: ${{ secrets.TOKEN }}
         run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
 
-      - name: Fetch Stable Images from GitHub Container Registry
+      - name: Fetch Images with Stable and ARM Tags
         id: fetch_images
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
-          echo "Fetching stable images from GitHub Container Registry..."
+          echo "Fetching images with stable and arm tags from GitHub Container Registry..."
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/rajanagori/packages?package_type=container")
-          # Extract images and check for valid entries
+
           IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
+
           if [ -z "$IMAGES" ]; then
             echo "No container images found. Exiting."
             exit 1
           fi
-          STABLE_IMAGES=()
+
+          SELECTED_IMAGES=()
           for PACKAGE in $IMAGES; do
-            # Fetch versions for each package and handle errors (e.g., 404 for no stable versions)
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
-            # If the version response is empty or contains "Not Found", skip the package
+
             if [[ "$VERSIONS_RESPONSE" == *"Not Found"* || -z "$VERSIONS_RESPONSE" ]]; then
               echo "No versions or 404 error for package: $PACKAGE, skipping..."
               continue
             fi
+
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            # Check if there are stable tags
-            STABLE_TAGS=$(echo "$TAGS" | grep -w 'stable')
-            if [[ -n "$STABLE_TAGS" ]]; then
-              for TAG in $STABLE_TAGS; do
-                STABLE_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
+            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew 'stable|arm')
+
+            if [[ -n "$STABLE_OR_ARM_TAGS" ]]; then
+              for TAG in $STABLE_OR_ARM_TAGS; do
+                SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
               done
             else
-              echo "No stable tags found for package: $PACKAGE, skipping..."
+              echo "No stable or arm tags found for package: $PACKAGE, skipping..."
             fi
           done
-          if [ ${#STABLE_IMAGES[@]} -eq 0 ]; then
-            echo "No stable images found, skipping the job."
+
+          if [ ${#SELECTED_IMAGES[@]} -eq 0 ]; then
+            echo "No images with stable or arm tags found, skipping the job."
             exit 0
           fi
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${STABLE_IMAGES[@]}")"
-  
+
+          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
+
   scan:
     name: Run Trivy Scan and Generate SBOM
     needs: setup
@@ -86,7 +90,7 @@ jobs:
           wget https://github.com/aquasecurity/trivy/releases/download/v0.57.0/trivy_0.57.0_Linux-64bit.deb
           sudo dpkg -i trivy_0.57.0_Linux-64bit.deb
           rm trivy_0.57.0_Linux-64bit.deb
-      
+
       - name: Cache Trivy DB
         uses: actions/cache@v3
         with:
@@ -94,12 +98,10 @@ jobs:
           key: ${{ runner.os }}-trivy-db-${{ matrix.image }}-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-trivy-db-${{ matrix.image }}-
-      
+
       - name: Refresh Trivy DB if necessary
         run: |
           echo "Checking if Trivy vulnerability database needs to be refreshed..."
-          
-          # Check if the database is outdated by comparing file timestamps
           DB_PATH=~/.cache/trivy/db
           if [[ ! -f "$DB_PATH" ]] || [[ $(find $DB_PATH -mmin +60) ]]; then
             echo "Refreshing Trivy vulnerability database..."
@@ -107,15 +109,15 @@ jobs:
           else
             echo "Trivy DB is up-to-date, no need to refresh."
           fi
-      
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Run Trivy Vulnerability Scanner
         run: |
-          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')  # Sanitize the image name
+          IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           echo "Scanning ${{ matrix.image }}..."
-          mkdir -p artifacts  # Create the artifacts directory to collect results
+          mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
           trivy image \
             --format sarif \
@@ -124,6 +126,7 @@ jobs:
             --timeout 60m \
             --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
             ${{ matrix.image }}
+
           trivy image \
             --format cyclonedx \
             --scanners vuln \
@@ -131,12 +134,15 @@ jobs:
             --timeout 60m \
             --output artifacts/sbom-${IMAGE_NAME}.cyclonedx.json \
             ${{ matrix.image }}
+
           echo "Verifying files in artifacts directory..."
           ls -al artifacts/
+
           if [[ ! -f "artifacts/trivy-results-${IMAGE_NAME}.sarif" ]]; then
             echo "Error: SARIF file was not created."
             exit 1
           fi
+
           if [[ ! -f "artifacts/sbom-${IMAGE_NAME}.cyclonedx.json" ]]; then
             echo "Error: JSON SBOM file was not created."
             exit 1
