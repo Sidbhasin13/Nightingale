@@ -35,50 +35,15 @@ jobs:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
           echo "Fetching images with stable and arm tags from GitHub Container Registry.."
-          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/rajanagori/packages?package_type=container")
+          # Hardcoded images for Trivy scan
+          SELECTED_IMAGES=(
+            "ghcr.io/rajanagori/nightingale:stable"
+            "ghcr.io/rajanagori/nightingale:arm64"
+          )
 
-          IMAGES=$(echo "$RESPONSE" | jq -r 'map(select(.package_type == "container")) | .[].name')
+          echo "Used images: ${SELECTED_IMAGES[@]}"
 
-          if [ -z "$IMAGES" ]; then
-            echo "No container images found. Exiting."
-            exit 1
-          fi
-
-          echo "Found images: $IMAGES"
-
-          SELECTED_IMAGES=()
-          for PACKAGE in $IMAGES; do
-            echo "Checking package: $PACKAGE"
-
-            VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
-
-            if [[ "$VERSIONS_RESPONSE" == *"Not Found"* || -z "$VERSIONS_RESPONSE" ]]; then
-              echo "No versions or 404 error for package: $PACKAGE, skipping..."
-              continue
-            fi
-
-            TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            echo "Tags found for $PACKAGE: $TAGS"
-            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew '^stable$|^arm64$')
-
-            if [[ -n "$STABLE_OR_ARM_TAGS" ]]; then
-              for TAG in $STABLE_OR_ARM_TAGS; do
-                SELECTED_IMAGES+=("ghcr.io/rajanagori/${PACKAGE}:${TAG}")
-              done
-            else
-              echo "No stable or arm tags found for package: $PACKAGE, skipping..."
-            fi
-          done
-
-          if [ ${#SELECTED_IMAGES[@]} -eq 0 ]; then
-            echo "No images with stable or arm tags found, skipping the job."
-            exit 0
-          fi
-
+          # Setting the output for the GitHub Actions workflow
           echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
 
   scan:
