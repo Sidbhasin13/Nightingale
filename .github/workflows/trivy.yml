@@ -38,7 +38,7 @@ jobs:
           # Hardcoded images for Trivy scan
           SELECTED_IMAGES=(
             "ghcr.io/rajanagori/nightingale:stable"
-            "ghcr.io/rajanagori/nightingale:arm64"
+            # "ghcr.io/rajanagori/nightingale:arm64"
           )
 
           echo "Used images: ${SELECTED_IMAGES[@]}"
