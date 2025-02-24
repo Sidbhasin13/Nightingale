@@ -46,8 +46,12 @@ jobs:
             exit 1
           fi
 
+          echo "Found images: $IMAGES"
+
           SELECTED_IMAGES=()
           for PACKAGE in $IMAGES; do
+            echo "Checking package: $PACKAGE"
+
             VERSIONS_RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/users/rajanagori/packages/container/${PACKAGE}/versions?per_page=100")
@@ -58,7 +62,8 @@ jobs:
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew 'stable|arm64')
+            echo "Tags found for $PACKAGE: $TAGS"
+            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew '^stable$|^arm64$')
 
             if [[ -n "$STABLE_OR_ARM_TAGS" ]]; then
               for TAG in $STABLE_OR_ARM_TAGS; do
