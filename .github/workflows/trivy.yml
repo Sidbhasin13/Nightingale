@@ -152,7 +152,7 @@ jobs:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
       - name: Upload SBOM Files to Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom-files
           path: artifacts/*.cyclonedx.json
