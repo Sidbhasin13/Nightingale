@@ -34,7 +34,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.TOKEN }}
         run: |
-          echo "Fetching images with stable and arm tags from GitHub Container Registry..."
+          echo "Fetching images with stable and arm tags from GitHub Container Registry.."
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/rajanagori/packages?package_type=container")
