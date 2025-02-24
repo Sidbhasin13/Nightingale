@@ -37,8 +37,8 @@ jobs:
           echo "Fetching images with stable and arm tags from GitHub Container Registry.."
           # Hardcoded images for Trivy scan
           SELECTED_IMAGES=(
-            "ghcr.io/rajanagori/nightingale:stable"
-            # "ghcr.io/rajanagori/nightingale:arm64"
+            # "ghcr.io/rajanagori/nightingale:stable"
+            "ghcr.io/rajanagori/nightingale:arm64"
           )
 
           echo "Used images: ${SELECTED_IMAGES[@]}"
