@@ -58,7 +58,7 @@ jobs:
             fi
 
             TAGS=$(echo "$VERSIONS_RESPONSE" | jq -r '.[]?.metadata?.container?.tags[]?')
-            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew 'stable|arm')
+            STABLE_OR_ARM_TAGS=$(echo "$TAGS" | grep -Ew 'stable|arm64')
 
             if [[ -n "$STABLE_OR_ARM_TAGS" ]]; then
               for TAG in $STABLE_OR_ARM_TAGS; do
@@ -160,5 +160,5 @@ jobs:
       - name: Upload SBOM Files to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-files
+          name: sbom-files-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/*.cyclonedx.json
