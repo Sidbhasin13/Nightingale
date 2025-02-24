@@ -99,7 +99,7 @@ jobs:
         run: |
           echo "Checking if Trivy vulnerability database needs to be refreshed..."
           
-          # Check if the database is outdated by comparing file timestamps
+          # Check if the database is outdated by comparing file timestamp
           DB_PATH=~/.cache/trivy/db
           if [[ ! -f "$DB_PATH" ]] || [[ $(find $DB_PATH -mmin +60) ]]; then
             echo "Refreshing Trivy vulnerability database..."
