@@ -2,13 +2,16 @@ name: Trivy Scan
 
 on:
   push:
-    branches: ["debug-trivy-scan-issue"]
+    branches: ["main"]
     paths:
       - ".github/workflows/trivy.yml"
   pull_request:
-    branches: ["debug-trivy-scan-issue"]
+    branches: ["main"]
     paths:
       - ".github/workflows/trivy.yml"
+  
+  schedule:
+    - cron: '0 23 * * 0'
 
 permissions:
   contents: read
