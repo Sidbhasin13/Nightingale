@@ -142,25 +142,3 @@ jobs:
         with:
           name: trivy-scan-results-${{ env.IMAGE_NAME }}
           path: artifacts/
-  
-  final:
-    name: Collect Results, Create ZIP, and Upload
-    needs: scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download All Scan Results
-        uses: actions/download-artifact@v4
-        with:
-          path: /home/runner/work/${{ github.repository }}/artifacts/
-
-      - name: Organize Artifacts and Create ZIP
-        run: |
-          mkdir -p final-artifacts
-          mv /home/runner/work/${{ github.repository }}/artifacts/*/* final-artifacts/
-          zip -r trivy-results.zip final-artifacts
-
-      - name: Upload Final ZIP Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-results-and-sbom
-          path: trivy-results.zip
