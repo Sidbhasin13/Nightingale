@@ -64,7 +64,7 @@ jobs:
           echo "Scanning ${{ matrix.image }}..."
           mkdir -p artifacts
 
-          # Detect if the image is ARM64
+          # Detect if the image is ARM64 or not
           if [[ "${{ matrix.image }}" == *":arm64" ]]; then
             PLATFORM_FLAG="--platform linux/arm64"
           else
