@@ -79,7 +79,7 @@ jobs:
           else
             echo "Trivy DB is up-to-date, no need to refresh."
           fi
-
+          
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -89,7 +89,7 @@ jobs:
           echo "Scanning ${{ matrix.image }}..."
           mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
-		  
+
           # Detect if the image is ARM64 or not
           if [[ "${{ matrix.image }}" == *":arm64" ]]; then
             PLATFORM_FLAG="--platform linux/arm64"
@@ -98,7 +98,7 @@ jobs:
           fi
 
           echo "Using PLATFORM_FLAG: $PLATFORM_FLAG"
-		  
+
           trivy image $PLATFORM_FLAG \
             --format sarif \
             --scanners vuln \
@@ -127,7 +127,7 @@ jobs:
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
-      
+
       - name: Set Image Name for Upload
         id: set_image_name
         run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
