@@ -140,7 +140,7 @@ jobs:
       - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-scan-results
+          name: trivy-scan-results-${{ env.IMAGE_NAME }}
           path: artifacts/
   
   final:
@@ -148,20 +148,19 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Download Scan Results Artifacts
+      - name: Download All Scan Results
         uses: actions/download-artifact@v4
         with:
-          name: trivy-scan-results
           path: /home/runner/work/${{ github.repository }}/artifacts/
 
-      - name: Create ZIP File for SARIF and SBOM
+      - name: Organize Artifacts and Create ZIP
         run: |
-          echo "Creating ZIP file for SARIF and SBOM files..."
-          DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
-          zip -r artifacts.zip $DOWNLOAD_DIR  
-      
-      - name: Upload Single ZIP Artifact
-        uses: actions/upload-artifact@v3
+          mkdir -p final-artifacts
+          mv /home/runner/work/${{ github.repository }}/artifacts/*/* final-artifacts/
+          zip -r trivy-results.zip final-artifacts
+
+      - name: Upload Final ZIP Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-results-and-sbom
-          path: artifacts.zip
+          path: trivy-results.zip
