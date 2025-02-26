@@ -37,7 +37,7 @@ jobs:
           echo "Fetching images with stable and arm tags from GitHub Container Registry.."
           # Hardcoded images for Trivy scan
           SELECTED_IMAGES=(
-            # "ghcr.io/rajanagori/nightingale:stable"
+            "ghcr.io/rajanagori/nightingale:stable"
             "ghcr.io/rajanagori/nightingale:arm64"
           )
 
@@ -89,7 +89,7 @@ jobs:
           echo "Scanning ${{ matrix.image }}..."
           mkdir -p artifacts
           echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
-          
+		  
           # Detect if the image is ARM64 or not
           if [[ "${{ matrix.image }}" == *":arm64" ]]; then
             PLATFORM_FLAG="--platform linux/arm64"
