@@ -137,42 +137,31 @@ jobs:
         with:
           sarif_file: artifacts/trivy-results-${{ env.IMAGE_NAME }}.sarif
 
-      - name: Upload SBOM Files (Temporary)
+      - name: Upload Scan Results to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sbom-temp-${{ env.IMAGE_NAME }}
-          path: artifacts/sbom-*.cyclonedx.json
-
-  package:
-    name: Package and Upload Final SBOM ZIP
-    runs-on: ubuntu-latest
+          name: trivy-scan-results
+          path: artifacts/
+  
+  final:
+    name: Collect Results, Create ZIP, and Upload
     needs: scan
+    runs-on: ubuntu-latest
     steps:
-      - name: Download All SBOM Files
+      - name: Download Scan Results Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: trivy-scan-results
+          path: /home/runner/work/${{ github.repository }}/artifacts/
 
-      - name: Zip All SBOM Files
+      - name: Create ZIP File for SARIF and SBOM
         run: |
-          echo "Creating ZIP archive for SBOM files..."
-          rm -f artifacts/sbom-files.zip
-          zip -j artifacts/sbom-files.zip artifacts/sbom-temp-*/sbom-*.cyclonedx.json
-          echo "Contents of the ZIP file:"
-          unzip -l artifacts/sbom-files.zip
-
-      - name: Upload Final SBOM ZIP
-        uses: actions/upload-artifact@v4
+          echo "Creating ZIP file for SARIF and SBOM files..."
+          DOWNLOAD_DIR="/home/runner/work/${{ github.repository }}/artifacts/"
+          zip -r artifacts.zip $DOWNLOAD_DIR  
+      
+      - name: Upload Single ZIP Artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: sbom-files-${{ github.run_id }}
-          path: artifacts/sbom-files.zip
-
-      - name: Delete Temporary SBOM Artifacts
-        run: |
-          echo "Deleting temporary SBOM artifacts..."
-          for artifact in $(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts | jq -r '.artifacts[] | select(.name | startswith("sbom-temp-")) | .id'); do
-            echo "Deleting artifact ID: $artifact"
-            gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$artifact
-          done
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: trivy-results-and-sbom
+          path: artifacts.zip
