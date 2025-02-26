@@ -15,44 +15,15 @@ permissions:
   security-events: write
 
 jobs:
-  setup:
-    name: Fetch Images from GitHub Container Registry
-    runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.fetch_images.outputs.images }}
-    steps:
-      - name: Install Dependencies
-        run: sudo apt-get update && sudo apt-get install -y wget jq zip
-
-      - name: Authenticate with GitHub Container Registry
-        env:
-          CR_PAT: ${{ secrets.TOKEN }}
-        run: echo $CR_PAT | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-
-      - name: Fetch Images with Stable and ARM Tags
-        id: fetch_images
-        env:
-          GH_TOKEN: ${{ secrets.TOKEN }}
-        run: |
-          echo "Fetching images with stable and arm tags from GitHub Container Registry.."
-          # Hardcoded images for Trivy scan
-          SELECTED_IMAGES=(
-            # "ghcr.io/rajanagori/nightingale:stable"
-            "ghcr.io/rajanagori/nightingale:arm64"
-          )
-
-          echo "Used images: ${SELECTED_IMAGES[@]}"
-
-          # Setting the output for the GitHub Actions workflow
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
-
   scan:
     name: Run Trivy Scan and Generate SBOM
-    needs: setup
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: ${{ fromJson(needs.setup.outputs.images) }}
+        image:
+          - "ghcr.io/rajanagori/nightingale:stable"
+          - "ghcr.io/rajanagori/nightingale:arm64"
+
     steps:
       - name: Install Trivy
         run: |
@@ -83,13 +54,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Set Image Name for Upload
+        id: set_image_name
+        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
+
       - name: Run Trivy Vulnerability Scanner
         run: |
           IMAGE_NAME=$(echo "${{ matrix.image }}" | sed 's/[^a-zA-Z0-9]/_/g')
           echo "Scanning ${{ matrix.image }}..."
           mkdir -p artifacts
-          echo "Scanning ${{ matrix.image }} for vulnerabilities and generating SARIF and SBOM..."
-          trivy image \
+
+          # Detect if the image is ARM64
+          if [[ "${{ matrix.image }}" == *":arm64" ]]; then
+            PLATFORM_FLAG="--platform linux/arm64"
+          else
+            PLATFORM_FLAG=""
+          fi
+
+          echo "Using PLATFORM_FLAG: $PLATFORM_FLAG"
+
+          # Trivy scan for vulnerabilities (SARIF output)
+          trivy image $PLATFORM_FLAG \
             --format sarif \
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
@@ -97,7 +82,8 @@ jobs:
             --output artifacts/trivy-results-${IMAGE_NAME}.sarif \
             ${{ matrix.image }}
 
-          trivy image \
+          # Trivy scan for SBOM (CycloneDX format)
+          trivy image $PLATFORM_FLAG \
             --format cyclonedx \
             --scanners vuln \
             --severity CRITICAL,MEDIUM \
@@ -117,10 +103,6 @@ jobs:
             echo "Error: JSON SBOM file was not created."
             exit 1
           fi
-      
-      - name: Set Image Name for Upload
-        id: set_image_name
-        run: echo "IMAGE_NAME=$(echo '${{ matrix.image }}' | sed 's/[^a-zA-Z0-9]/_/g')" >> $GITHUB_ENV
 
       - name: Upload SARIF file to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
