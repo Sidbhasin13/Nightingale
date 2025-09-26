@@ -12,7 +12,9 @@ RUN \
     whatweb \
     curl \
     wget \
-    pipx && \
+    pipx \
+    hashcat \
+    hashcat-data && \
 ### Creating Directories
     cd /home && \
     mkdir -p tools_web_vapt .gf 
@@ -48,9 +50,7 @@ RUN \
     #Install git leaks
     git clone --depth 1 https://github.com/gitleaks/gitleaks.git &&\
     # Install Ghauri
-    git clone --depth 1 https://github.com/r0oth3x49/ghauri.git &&\
-    # Install Hashcat
-    git clone https://github.com/hashcat/hashcat.git
+    git clone --depth 1 https://github.com/r0oth3x49/ghauri.git
 
 ### Installing Tools 
 RUN \
@@ -104,21 +104,15 @@ RUN \
     make build
 
 RUN \
-    ## Installing Ghauri
-    cd ghauri &&\
-    while read p; do pipx install --include-deps "$p"; done < requirements.txt &&\
-    python3 setup.py install
-
- RUN \
-    cd hashcat && \
-    make --silent && \
-    ln -s ${TOOLS_WEB_VAPT}/hashcat/hashcat /usr/local/bin/hashcat
+    cd ghauri && \
+    pip3 install -r requirements.txt --break-system-packages && \
+    pip3 install .
 
 RUN \
 ### Installing Amass 
-    wget --quiet https://github.com/owasp-amass/amass/releases/download/v4.2.0/amass_Linux_arm64.zip -O amass.zip &&\
-    unzip amass.zip && \
-    mv amass_Linux_arm64/amass /usr/local/bin && rm -rf amass_Linux_arm64 amass.zip && \
+    wget --quiet https://github.com/owasp-amass/amass/releases/download/v5.0.0/amass_linux_arm64.tar.gz -O amass.tar.gz &&\
+    tar -xzf amass.tar.gz && \
+    mv amass_linux_arm64/amass /usr/local/bin && rm -rf amass_linux_arm64 amass.tar.gz && \
     # Cleaning Unwanted libraries 
     apt-get -y autoremove &&\
     apt-get -y clean &&\

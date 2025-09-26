@@ -61,9 +61,6 @@ echo "Sublist3r installation completed."
 # Install XSStrike
 install_tool_with_pipx "${TOOLS_WEB_VAPT}/XSStrike" "requirements.txt"
 
-# Install SpiderFoot
-install_tool_with_pipx "${TOOLS_OSINT}/spiderfoot" "requirements.txt"
-
 # Install ReconSpider
 echo "Installing ReconSpider..."
 cd "${TOOLS_OSINT}/reconspider"
@@ -72,6 +69,7 @@ python3 setup.py install
 echo "ReconSpider installation completed."
 
 # Install Recon-ng
+cd "${TOOLS_OSINT}/recon-ng"
 install_tool_with_pipx "${TOOLS_OSINT}/recon-ng" "REQUIREMENTS"
 
 # Install Metagoofil
@@ -81,7 +79,11 @@ install_tool_with_pipx "${TOOLS_OSINT}/metagoofil" "requirements.txt"
 install_tool_with_pipx "${TOOLS_OSINT}/theHarvester" "requirements/base.txt"
 
 # Install Ghauri
-install_tool_with_pipx  "--include-deps ${TOOLS_WEB_VAPT}/ghauri" "requirements.txt"
+cd "${TOOLS_WEB_VAPT}/ghauri"
+# install_tool_with_pipx  "--include-deps ${TOOLS_WEB_VAPT}/ghauri" "requirements.txt"
+# pip3 install -r requirements.txt
+python3 setup.py install
+
 
 # Install objection, octosuite, dirsearch, sqlmap, and frida-tools from PyPI
 echo "Installing objection, octosuite, dirsearch, sqlmap, and frida-tools..."

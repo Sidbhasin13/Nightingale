@@ -21,17 +21,11 @@ WORKDIR ${TOOLS_OSINT}
 
 # Clone tools repository
 RUN git clone --depth 1 https://github.com/lanmaster53/recon-ng.git && \
-    git clone --depth 1 https://github.com/smicallef/spiderfoot.git && \
     git clone --depth 1 https://github.com/opsdisk/metagoofil
 
 # Install recon-ng requirements
 RUN cd recon-ng && \
-    while read p; do pipx install "$p"; done < REQUIREMENTS && \
-    cd ..
-
-# Install Spiderfoot requirements
-RUN cd spiderfoot && \
-    pip3 install -r requirements.txt --break-system-packages && \
+    while read p; do pip3 install "$p"; done < REQUIREMENTS && \
     cd ..
 
 # Install metagoofil requirements

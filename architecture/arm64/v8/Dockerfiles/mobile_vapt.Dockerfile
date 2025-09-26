@@ -39,7 +39,8 @@ RUN cd Mobile-Security-Framework-MobSF && \
     cd ..
 
 # Install RMS-Runtime-Mobile-Security
-# RUN chmod +x /temp/rms-install-modules.sh && \
+RUN chmod +x /temp/rms-install-modules.sh 
+# && \
 #     dos2unix /temp/rms-install-modules.sh && \
 #     /temp/rms-install-modules.sh
 

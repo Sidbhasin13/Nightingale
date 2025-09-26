@@ -13,28 +13,17 @@ RUN apt-get update -y --fix-missing && \
     make \
     gcc \
     ca-certificates \
-    software-properties-common \
     build-essential
 
-# Stage 2: Python 2 stage
-# Removed Python 2 stage as it is deprecated and not recommended for use.
-# FROM python:3.13-slim AS python2 
-
 # Stage 3: Python 3 stage
-FROM python:3.13.5-slim AS python3
+FROM python:3.12.11-slim AS python3
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    python3-full \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    python3-openssl \
-    python3-distutils && \
-    python3 -m venv /opt/venv3 && \
-    pip install --upgrade pip && \
-    pip install setuptools && \
-    pip install pipx
+    build-essential && \
+    rm -rf /var/lib/apt/lists/* && \
+    python -m venv /opt/venv3 --copies && \
+    /opt/venv3/bin/pip install --upgrade pip setuptools==58.2.0 pipx
 
 # Stage 4: Ruby stage
 FROM --platform=$TARGETPLATFORM ruby:$RUBY AS ruby-builder
@@ -67,7 +56,6 @@ RUN apt-get update -y --fix-missing && \
     make \
     gcc \
     cmake \
-    software-properties-common \
     build-essential \
     libcurl4-openssl-dev \
     libexpat1-dev \
@@ -99,33 +87,22 @@ RUN apt-get update -y --fix-missing && \
     libncursesw5-dev \
     xz-utils \
     tk-dev \
-    python3-full \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    python3-openssl \
-    python3-distutils \
     pipx
 
 
 # Copy necessary files from other stages
 # Removed Python 2 environment variable as it is deprecated
 # COPY --from=python2 /usr/local/bin/python2.7 /usr/local/bin/python2.7
-COPY --from=python3 /usr/bin/python3 /usr/bin/python3
 COPY --from=python3 /opt/venv3 /opt/venv3
+COPY --from=python3 /usr/local/lib/ /usr/local/lib/
+COPY --from=python3 /usr/local/bin/ /usr/local/bin/
 COPY --from=go-builder /usr/local/go /usr/local/go
 COPY --from=go-builder /home /home
 COPY --from=java /usr/java/openjdk-26 /usr/java/openjdk-26
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends default-jdk && \
-    rm -rf /var/lib/apt/lists/*
-
 # Set environment variables
-# Removed Python 2 environment variable as it is deprecated
-# ENV PYTHON2="/usr/local/bin/python2.7"
-ENV PYTHON3="/usr/bin/python3"
+ENV PYTHON3="/opt/venv3/bin/python"
 ENV GOROOT="/usr/local/go"
 ENV GOPATH="/home/go"
-ENV JAVA_HOME="/usr/local/openjdk-26"
-ENV PATH="$GOPATH/bin:$GOROOT/bin:$PYTHON3:$JAVA_HOME:$PATH"
+ENV JAVA_HOME="/usr/java/openjdk-26"
+ENV PATH="/opt/venv3/bin:$GOPATH/bin:$GOROOT/bin:$JAVA_HOME:$PATH"

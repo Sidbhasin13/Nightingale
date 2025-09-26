@@ -10,7 +10,10 @@ RUN \
     bundler \
     unzip \
     whatweb \
-    pipx && \
+    pipx \
+    hashcat \
+    hashcat-data \
+    python3-setuptools && \
 ### Creating Directories
     cd /home && \
     mkdir -p tools_web_vapt .gf 
@@ -46,9 +49,8 @@ RUN \
     #Install git leaks
     git clone --depth 1 https://github.com/gitleaks/gitleaks.git &&\
     # Install Ghauri
-    git clone --depth 1 https://github.com/r0oth3x49/ghauri.git &&\
-    # Install Hashcat
-    git clone https://github.com/hashcat/hashcat.git
+    git clone --depth 1 https://github.com/r0oth3x49/ghauri.git 
+
 
 
 ### Installing Tools 
@@ -93,18 +95,6 @@ RUN \
     cd ..
 
 RUN \
-### Installing Amass 
-    wget --quiet https://github.com/owasp-amass/amass/releases/download/v4.2.0/amass_Linux_amd64.zip -O amass.zip &&\
-    unzip amass.zip && \
-    mv amass_Linux_amd64/amass /usr/local/bin && rm -rf amass_Linux_amd64 amass.zip && \
-    # Cleaning Unwanted libraries 
-    apt-get -y autoremove &&\
-    apt-get -y clean &&\
-    rm -rf /tmp/* &&\
-    rm -rf /var/lib/apt/lists/* &&\
-    echo 'export PATH="$PATH:/root/.local/bin"' >> ~/.bashrc
-
-RUN \
 ### Installing Trufflehog
     curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
 
@@ -115,14 +105,20 @@ RUN \
     make build
 
 RUN \
-    ## Installing Ghauri
-    cd ghauri &&\
-    while read p; do pipx install --include-deps "$p"; done < requirements.txt &&\
-    python3 setup.py install
+    cd ghauri && \
+    pip3 install -r requirements.txt --break-system-packages && \
+    pip3 install .
 
- RUN \
-    cd hashcat && \
-    make && \
-    ln -s ${TOOLS_WEB_VAPT}/hashcat/hashcat /usr/local/bin/hashcat
-    
+RUN \
+### Installing Amass \
+    wget --quiet https://github.com/owasp-amass/amass/releases/download/v5.0.0/amass_linux_amd64.tar.gz -O amass.tar.gz &&\
+    tar -xzf amass.tar.gz && \
+    mv amass_linux_amd64/amass /usr/local/bin && rm -rf amass_linux_amd64 amass.tar.gz && \
+    # Cleaning Unwanted libraries \
+    apt-get -y autoremove &&\
+    apt-get -y clean &&\
+    rm -rf /tmp/* &&\
+    rm -rf /var/lib/apt/lists/* &&\
+    echo 'export PATH="$PATH:/root/.local/bin"' >> ~/.bashrc
+
 WORKDIR /home
