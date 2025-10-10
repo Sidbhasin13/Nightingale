@@ -40,8 +40,8 @@ jobs:
 
           echo "Used images: ${SELECTED_IMAGES[@]}"
 
-          # Setting the output for the GitHub Actions workflow
-          echo "::set-output name=images::$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")"
+          images_json=$(jq -c -n '$ARGS.positional' --args "${SELECTED_IMAGES[@]}")
+          echo "images=$images_json" >> "$GITHUB_OUTPUT"
 
   scan:
     name: Run Trivy Scan and Generate SBOM
@@ -139,3 +139,46 @@ jobs:
         with:
           name: trivy-scan-results-${{ env.IMAGE_NAME }}
           path: artifacts/
+
+  build-site:
+    name: Build SBOM UI
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all Trivy artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: trivy-scan-results-*
+          merge-multiple: true
+          path: ./all-artifacts
+
+      - name: List SBOMs found
+        run: |
+          echo "Found SBOMs:"
+          find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
+
+      - name: Generate static SBOM UI
+        id: sbom_ui
+        uses: Sidbhasin13/sbom-ui-action@main
+        with:
+          sbom_glob: "all-artifacts/**/sbom-*.cyclonedx.json"
+          output_dir: "site"
+          site_title: "SBOMs Explorer"
+          fail_on_empty: "true"
+
+      - name: Upload site artifact for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
