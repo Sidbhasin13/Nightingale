@@ -15,7 +15,7 @@ permissions:
 concurrency:
   group: "pages"
   cancel-in-progress: false
-  
+
 jobs:
   setup:
     name: Fetch Images from GitHub Container Registry
@@ -177,15 +177,3 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build-site
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
