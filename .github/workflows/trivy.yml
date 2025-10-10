@@ -168,11 +168,18 @@ jobs:
         id: sbom_ui
         uses: Sidbhasin13/sbom-ui-action@main
         with:
-          sbom_glob: "all-artifacts/**/sbom-*.cyclonedx.json"
+          sbom_glob: "all-artifacts/**/*.cyclonedx.json,all-artifacts/**/*.sbom.json,all-artifacts/**/*spdx*.json"
           output_dir: "site"
           site_title: "SBOMs Explorer"
           fail_on_empty: "true"
           base_url: "/Nightingale/"
+      
+      - name: Inspect generated site
+        run: |
+          echo "==== Site tree ===="
+          find site -maxdepth 2 -type f -print
+          echo "==== data.json hint(s) in HTML/JS ===="
+          grep -Rin --line-number --binary-files=without-match "data.json" site || true
 
       - name: Upload site artifact for Pages
         uses: actions/upload-pages-artifact@v3
