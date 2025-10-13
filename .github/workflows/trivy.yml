@@ -148,52 +148,52 @@ jobs:
           path: artifacts/
 
   build-site:
-  name: Build SBOM UI
-  needs: scan
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout your SBOM UI Action
-      uses: actions/checkout@v4
-      with:
-        repository: Sidbhasin13/sbom-ui-action
-        ref: main  # Use main branch - this will get the latest fixes
-        path: sbom-ui-action
+    name: Build SBOM UI
+    needs: scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your SBOM UI Action
+        uses: actions/checkout@v4
+        with:
+          repository: Sidbhasin13/sbom-ui-action
+          ref: main
+          path: sbom-ui-action
 
-    - name: Download all Trivy artifacts
-      uses: actions/download-artifact@v4
-      with:
-        pattern: trivy-scan-results-*
-        merge-multiple: true
-        path: ./all-artifacts
+      - name: Download all Trivy artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: trivy-scan-results-*
+          merge-multiple: true
+          path: ./all-artifacts
 
-    - name: List SBOMs found
-      run: |
-        echo "Found SBOMs:"
-        find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
+      - name: List SBOMs found
+        run: |
+          echo "Found SBOMs:"
+          find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
 
-    - name: Generate SBOM UI using pre-built action
-      run: |
-        cd sbom-ui-action
-        # Set environment variables for the action
-        export INPUT_SBOM_FILES="../all-artifacts/**/sbom-*.cyclonedx.json"
-        export INPUT_OUTPUT_DIR="../site"
-        export INPUT_TITLE="Nightingale SBOM Explorer"
-        export INPUT_THEME="dark"
-        
-        # Run the pre-built action directly (no dependencies needed)
-        node dist/index.js
+      - name: Generate SBOM UI using pre-built action
+        run: |
+          cd sbom-ui-action
+          # Set environment variables for the action
+          export INPUT_SBOM_FILES="../all-artifacts/**/sbom-*.cyclonedx.json"
+          export INPUT_OUTPUT_DIR="../site"
+          export INPUT_TITLE="Nightingale SBOM Explorer"
+          export INPUT_THEME="dark"
+          
+          # Run the pre-built action directly (no dependencies needed)
+          node dist/index.js
 
-    - name: Verify generated files
-      run: |
-        echo "==== Generated files ===="
-        ls -la site/
-        echo "==== parse-sboms.json content ===="
-        head -20 site/parse-sboms.json || echo "File not found"
+      - name: Verify generated files
+        run: |
+          echo "==== Generated files ===="
+          ls -la site/
+          echo "==== parse-sboms.json content ===="
+          head -20 site/parse-sboms.json || echo "File not found"
 
-    - name: Upload site artifact for Pages
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: site
+      - name: Upload site artifact for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
 
   deploy:
     name: Deploy to GitHub Pages
