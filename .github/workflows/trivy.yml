@@ -183,10 +183,12 @@ jobs:
           # Run the pre-built action directly (no dependencies needed)
           node dist/index.js
 
-      - name: Inspect generated site
+      - name: Verify generated files
         run: |
-          echo "==== Site tree ===="
-          find site -maxdepth 3 -type f -print
+          echo "==== Generated files ===="
+          ls -la site/
+          echo "==== parse-sboms.json content ===="
+          head -20 site/parse-sboms.json || echo "File not found"
 
       - name: Upload site artifact for Pages
         uses: actions/upload-pages-artifact@v3
