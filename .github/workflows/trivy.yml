@@ -155,7 +155,8 @@ jobs:
       - name: Checkout your SBOM UI Action
         uses: actions/checkout@v4
         with:
-          repository: Sidbhasin13/sbom-ui-action@v1.0.1
+          repository: Sidbhasin13/sbom-ui-action
+          ref: main  # or v1.0.1
           path: sbom-ui-action
 
       - name: Download all Trivy artifacts
