@@ -156,7 +156,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Sidbhasin13/sbom-ui-action
-          ref: main
+          ref: 6d3af47e7cafd7552416c9d33c89b0d37cbb010f
           path: sbom-ui-action
 
       - name: Download all Trivy artifacts
