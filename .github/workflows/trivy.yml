@@ -168,7 +168,7 @@ jobs:
           find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
 
       - name: Generate SBOM UI Dashboard
-        uses: sidbhasin13/sbom-ui-action@v1  # ← Use your action here!
+        uses: sidbhasin13/sbom-ui-action@main  # ← Use your action here!
         with:
           sbom-files: 'all-artifacts/**/sbom-*.cyclonedx.json'
           output-dir: 'site'
