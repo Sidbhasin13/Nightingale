@@ -152,12 +152,8 @@ jobs:
     needs: scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout your SBOM UI Action
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          repository: Sidbhasin13/sbom-ui-action
-          ref: main
-          path: sbom-ui-action
 
       - name: Download all Trivy artifacts
         uses: actions/download-artifact@v4
@@ -171,17 +167,13 @@ jobs:
           echo "Found SBOMs:"
           find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
 
-      - name: Generate SBOM UI using pre-built action
-        run: |
-          cd sbom-ui-action
-          # Set environment variables for the action
-          export INPUT_SBOM_FILES="../all-artifacts/**/sbom-*.cyclonedx.json"
-          export INPUT_OUTPUT_DIR="../site"
-          export INPUT_TITLE="Nightingale SBOM Explorer"
-          export INPUT_THEME="dark"
-          
-          # Run the pre-built action directly (no dependencies needed)
-          node dist/index.js
+      - name: Generate SBOM UI Dashboard
+        uses: sidbhasin13/sbom-ui-action@v1  # ← Use your action here!
+        with:
+          sbom-files: 'all-artifacts/**/sbom-*.cyclonedx.json'
+          output-dir: 'site'
+          title: 'Nightingale SBOM Explorer'
+          theme: 'dark'
 
       - name: Verify generated files
         run: |
@@ -195,17 +187,17 @@ jobs:
         with:
           path: site
 
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build-site
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+  # deploy:
+  #   name: Deploy to GitHub Pages
+  #   needs: build-site
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     pages: write
+  #     id-token: write
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   steps:
+  #     - name: Deploy
+  #       id: deployment
+  #       uses: actions/deploy-pages@v4
