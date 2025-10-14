@@ -196,9 +196,11 @@ jobs:
       pages: write
       id-token: write
     environment:
-      name: sbom-dashboard
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: sbom-dashboard
