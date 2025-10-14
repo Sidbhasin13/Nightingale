@@ -185,9 +185,9 @@ jobs:
 
       - name: Verify generated files
         run: |
-          echo "==== Generated files ===="
+          echo "===== Generated files ====="
           ls -la site/
-          echo "==== parse-sboms.json content ===="
+          echo "===== parse-sboms.json content ====="
           head -20 site/parse-sboms.json || echo "File not found"
 
       - name: Upload site artifact for Pages
