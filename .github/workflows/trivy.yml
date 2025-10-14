@@ -147,10 +147,73 @@ jobs:
           name: trivy-scan-results-${{ env.IMAGE_NAME }}
           path: artifacts/
 
-  build-site:
-    name: Build SBOM UI
+  # build-site:
+  #   name: Build SBOM UI
+  #   needs: scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Download all Trivy artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: trivy-scan-results-*
+  #         merge-multiple: true
+  #         path: ./all-artifacts
+
+  #     - name: List SBOMs found
+  #       run: |
+  #         echo "Found SBOMs:"
+  #         find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
+
+  #     - name: Generate SBOM UI Dashboard
+  #       uses: sidbhasin13/sbom-ui-action@main  # ← Use your action here!
+  #       with:
+  #         sbom-files: 'all-artifacts/**/sbom-*.cyclonedx.json'
+  #         output-dir: 'site'
+  #         title: 'Nightingale SBOM Explorer'
+  #         theme: 'dark'
+
+  #     - name: Verify generated files
+  #       run: |
+  #         echo "===== Generated files ====="
+  #         ls -la site/
+  #         echo "===== parse-sboms.json content ====="
+  #         head -20 site/parse-sboms.json || echo "File not found"
+
+  #     - name: Upload site artifact for Pages
+  #       uses: actions/upload-pages-artifact@v3
+  #       with:
+  #         name: sbom-dashboard
+  #         path: site
+
+  # deploy:
+  #   name: Deploy to GitHub Pages
+  #   needs: build-site
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     pages: write
+  #     id-token: write
+  #   environment:
+  #     name: github-pages
+  #     url: ${{ steps.deployment.outputs.page_url }}
+  #   steps:
+  #     - name: Deploy
+  #       id: deployment
+  #       uses: actions/deploy-pages@v4
+  build-and-deploy:
+    name: Build SBOM UI and Deploy
     needs: scan
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -168,7 +231,7 @@ jobs:
           find ./all-artifacts -name "sbom-*.cyclonedx.json" -maxdepth 2 -print || true
 
       - name: Generate SBOM UI Dashboard
-        uses: sidbhasin13/sbom-ui-action@main  # ← Use your action here!
+        uses: sidbhasin13/sbom-ui-action@main
         with:
           sbom-files: 'all-artifacts/**/sbom-*.cyclonedx.json'
           output-dir: 'site'
@@ -182,23 +245,26 @@ jobs:
           echo "===== parse-sboms.json content ====="
           head -20 site/parse-sboms.json || echo "File not found"
 
-      - name: Upload site artifact for Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: './site'
+          
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Show Live URL
+        run: |
+          echo "Dashboard deployed to GitHub Pages!"
+          echo "Live URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "Your SBOM dashboard is now live and accessible to anyone!"
+
+      - name: Upload SBOM Dashboard Artifact (for manual download)
+        uses: actions/upload-artifact@v4
         with:
           name: sbom-dashboard
           path: site
-
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build-site
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
